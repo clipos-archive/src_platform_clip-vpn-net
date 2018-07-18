@@ -1,0 +1,27 @@
+PEER_ADDRS=10.0.3.1 10.0.3.2
+
+PEER_PUBKEY=peer1 # => peer1.ppr in ike2/certs
+
+PEER_NETWORKS=192.168.120.0/24 192.168.130.0/24
+
+# Optional network definition, to remotely administer
+# this peer
+# The peer's UPDATE, ADMIN and AUDIT addresses must all
+# be in that network
+PEER_ADMIN_NETWORKS=192.168.12.2/32 10.0.42.1/32 10.0.43.1/32
+
+# Activate port/protocol-based filtering for this peer
+FILTERING=yes 
+
+PEER_IN_TCP=80,443
+PEER_IN_UDP=53
+PEER_IN_SAME_TCP=
+PEER_IN_SAME_UDP=
+PEER_IN_PING=yes
+
+PEER_OUT_TCP=22
+PEER_OUT_UDP=
+PEER_OUT_SAME_TCP=
+PEER_OUT_SAME_UDP=
+PEER_OUT_PING=yes
+

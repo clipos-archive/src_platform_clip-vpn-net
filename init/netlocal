@@ -1,0 +1,115 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2010-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+description="setup local loop networking"
+
+depend() {
+	need veriexec 
+}
+
+config_extra() {
+	return 0
+}
+
+startlo_extra() {
+	return 0
+}
+
+import_extra_files() {
+	if [[ -f /lib/rc/net/netlocal_extra ]]; then
+		source /lib/rc/net/netlocal_extra
+	fi
+
+	source /lib/clip/import.sub
+	source /lib/clip/net.sub
+	source /lib/clip/netfilter.sub
+	source /lib/rc/net/common
+
+	import_root_config
+}
+
+get_conf() {
+	config_local || return 1
+	config_extra || return 1
+	export ILLEGAL_LOGLEV=info
+	export ILLEGAL_LOGLIM="10/minute"
+}
+
+pass_local_ssh() {
+	local jailpath="${1}"
+	local jail="${jailpath##*/}"
+	local veth="${jail//_}"
+
+	local port
+	port="$(awk -F'=' '$1 == "SSH_PORT" {print $2}' "${jailpath}/ssh")"
+
+	if [[ -z "${port}" ]]; then
+		ewarn "No SSH_PORT for jail ${jail}, skipping local netfilter rules"
+		return 0
+	fi
+
+	# Inbound SSH - remove any extra quotes in $port
+	pass_local_fw "user1" "${veth}1" "${port//[\"\']/}" || return 1
+	# Outbound X forwarding
+	pass_local_fw "${veth}1" "user1" "6000:6100" || return 1
+}
+
+start_lo() {
+	eindent
+
+	set_policy || return 1
+	flush_all || return 1
+	set_local_rules || return 1
+	source /etc/ipsec.conf || return 1
+
+	net_startif "lo" "127.0.0.1/16" 2>/dev/null || return 1
+	net_route_dev "lo" "127.0.0.0/16" 2>/dev/null || return 1
+
+	for jailpath in "/etc/jails/"*; do
+		[[ -e "${jailpath}/veth" ]] || continue
+		net_veth_create "${jailpath##*/}" || return 1
+	done
+	
+	for jailpath in "/etc/jails/"*; do
+		[[ -e "${jailpath}/ssh" ]] || continue
+		pass_local_ssh "${jailpath}" || return 1
+	done
+
+	startlo_extra || return 1
+
+	eoutdent
+}
+
+stop_lo() {
+	net_stopif "lo" 2>/dev/null
+}
+
+start() {
+	import_extra_files 
+
+	local last=
+	
+	netlist_init
+	
+	if ! get_conf; then
+		ewarn "Loopback networking config failed"
+		return 1
+	fi
+
+	ebegin "Setting up loopback networking"
+	start_lo 
+	eend $?
+}
+
+stop() {
+	import_extra_files 
+
+	ebegin "Stopping loopback networking"
+	stop_lo
+	eend $?
+}
+

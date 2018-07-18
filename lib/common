@@ -1,0 +1,166 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2008-2009 SGDN/DCSSI
+# Copyright 2010-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+IMPORT_ADDRESSES_LOCAL="UPDATE_ADDR ADMIN_ADDR AUDIT_ADDR"
+IMPORT_ADDRESSES="DEFAULT_ROUTE RED_PORT_ADDR BLACK_PORT_ADDR"
+IMPORT_MASKS="RED_PORT_MASK BLACK_PORT_MASK"
+MONITOR_PIDFILE="/var/run/netmonitor.pid"
+
+ADDR_MULTI_FILTER="${_IMPORT_FILTER_ADDR}( ${_IMPORT_FILTER_ADDR})*"
+NET_IMPORT_FILTER="${_IMPORT_FILTER_ADDR}/${_IMPORT_FILTER_MASK}"
+NET_MULTI_FILTER="${NET_IMPORT_FILTER}( ${NET_IMPORT_FILTER})*"
+
+CONFLINK="/etc/admin/conf.d/netconf" 2>/dev/null
+CONFPATH="/etc/admin/netconf.d" 2>/dev/null
+
+NET_CONST_FILE="/etc/admin/conf.d/net"
+NET_FILE="${CONFLINK}/net"
+ADMIN_FILE="${CONFLINK}/admin"
+NETFILTER_FILE="${CONFLINK}/netfilter"
+PEER_PATH="${CONFLINK}"
+SYSLOG_FILE="/etc/audit/syslog"
+
+NET_STATUS="/usr/local/var/net_status"
+NET_ERROR="/usr/local/var/net_error"
+NET_CHOICE="/usr/local/var/net_choice"
+NETLOCAL_MARK="/var/run/net_local_only"
+NONETWORK_MARK="/var/run/nonetwork"
+DOWNLOAD_LOCK="/mounts/update_priv/var/run/net_no_download"
+
+# Hardcoded for now
+BLACK_PORT="eth0"
+RED_PORT="eth1"
+
+source /lib/clip/import.sub
+source /lib/clip/net.sub
+source /lib/clip/misc.sub
+source /etc/conf.d/jail-net
+
+check_networking() {
+	[[ -e "${NETLOCAL_MARK}" ]] && return 1
+	local if_count="$(ip link show | wc -l)"
+	# If we have only 'lo', then we get 2 lines of output
+	if [[ ${if_count} -le 2 ]]; then
+		NET_NO_INTERFACE="yes"
+		return 1 
+	fi
+	return 0
+}
+
+# TODO check if needed
+import_root_config() {
+	import_conf_noerr "${NET_CONST_FILE}" '[a-zA-Z]+' 'NET_BASE_TYPE' \
+		2>/dev/null
+
+	if [[ -n "${NET_BASE_TYPE}" ]]; then 
+		if [[ -f "/etc/conf.d/net-${NET_BASE_TYPE}" ]]; then
+			source "/etc/conf.d/net-${NET_BASE_TYPE}"
+		else
+			ewarn "/etc/conf.d/net-${NET_BASE_TYPE} not present"
+			source "/etc/conf.d/net"
+		fi
+	else
+		source "/etc/conf.d/net"
+	fi
+}
+
+config_local() {
+	import_conf_all "${NET_CONST_FILE}" "${_IMPORT_FILTER_ADDR}|virtual" ${IMPORT_ADDRESSES_LOCAL} 2>/dev/null
+
+	ALL_LOCAL_ADDRS=""
+	local n
+	for n in USER UPDATE ADMIN AUDIT; do 
+		local var="${n}_ADDR"
+		local addr="${!var/virtual/}"
+		var="${n}_LOCAL_ADDR"
+		ALL_LOCAL_ADDRS="${ALL_LOCAL_ADDRS} ${addr} ${!var}"
+	done
+
+	if [[ -e "/sys/class/net/eth2" ]] ; then
+		export ADMIN_IF="2"
+		IMPORT_ADDRESSES="${IMPORT_ADDRESSES} ADMIN_PORT_ADDR"
+		IMPORT_MASKS="${IMPORT_MASKS} ADMIN_PORT_MASK"
+	else
+		einfo "eth${ADMIN_IF} not present, disabling ADMIN_IF"
+		export ADMIN_IF=""
+	fi
+}
+
+config_common() {
+	config_local || return 1
+
+
+	import_conf_noerr "${NET_FILE}" "${_IMPORT_FILTER_ADDR}" ${IMPORT_ADDRESSES} \
+		|| return 1
+
+	import_conf_noerr "${NET_FILE}" "${_IMPORT_FILTER_MASK}" ${IMPORT_MASKS} \
+		|| return 1
+
+	ALL_EXTERNAL_ADDRS="${RED_PORT_ADDR} ${BLACK_PORT_ADDR} ${ADMIN_PORT_ADDR}"
+
+	import_conf_noerr "${NET_FILE}" "${NET_MULTI_FILTER}" "RED_PORT_NETWORKS" \
+		|| return 1
+
+	# Optional
+	import_conf_noerr "${NET_FILE}" "yes|no" \ "RED_PORT_ADMIN" 2>/dev/null
+
+	return 0
+}
+
+write_lock() {
+	local msg="${1}"
+	local profile
+	local ipsec="ipsec: \n"
+
+	(
+		flock -s 200
+		[[ -L "${CONFLINK}" ]] && profile="profile: $(basename -- "$(readlink -- "${CONFLINK}")")\n"
+		echo -e "${profile}${ipsec}${msg}" > "${NET_STATUS}"
+	) 200>>"${NET_STATUS}"
+}
+
+update_lock() {
+	local tag="$(escape_regexp_ext "${1}")"
+	local val="$(escape_regexp_ext "${2}")"
+
+	(
+		flock -s 200
+		sed -i -r "s,(${tag//,/\\,}: ).*,\1${val//,/\\,}," "${NET_STATUS}"
+	) 200>>"${NET_STATUS}"
+}
+
+append_lock() {
+	local msg="${1}"
+
+	(
+		flock -s 200
+		echo -e "${msg}" >> "${NET_STATUS}"
+	) 200>>"${NET_STATUS}"
+}
+
+errormsg_clean() {
+	touch -- "${NET_ERROR}"
+	chmod 0644 -- "${NET_ERROR}"
+	echo -n >"${NET_ERROR}"
+}
+
+errormsg_add() {
+	echo "$1" >>"${NET_ERROR}"
+}
+
+netchoice_set() {
+	basename -- "$(readlink -- "${CONFLINK}")" >"${NET_CHOICE}"
+}
+
+netlist_init() {
+	list-net-profiles.sh init
+}
+
+netlist_update() {
+	list-net-profiles.sh update
+	netchoice_set
+}

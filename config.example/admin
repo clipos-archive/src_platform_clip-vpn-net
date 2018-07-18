@@ -1,0 +1,5 @@
+PEER_ADDRS=10.0.2.1 10.0.2.2
+
+PEER_PUBKEY=admin # => admin.ppr in ike2/certs
+
+PEER_NETWORKS=192.168.20.0/24 192.168.30.0/24

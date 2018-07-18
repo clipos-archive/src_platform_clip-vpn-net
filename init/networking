@@ -1,0 +1,137 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2007-2009 SGDN/DCSSI
+# Copyright 2010-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+description="Configure networking according to the current profile"
+
+depend() {
+	need veriexec clip_audit netlocal netconf
+	before reducecap
+	keyword -timeout
+}
+
+import_files() {
+	source /lib/clip/import.sub
+	source /lib/clip/net.sub
+	source /lib/clip/netfilter.sub
+	source /lib/rc/net/common
+}
+
+get_conf() {
+	config_common || return 1
+}
+
+start_module() {
+	local module="${1}"
+	local var="${2}"
+
+	var="NET_MODULE_${var}"
+
+	[[ -n "${!var}" ]] \
+		|| source "/lib/rc/net/${module}"
+	${module}_start
+}
+
+stop_module() {
+	local module="${1}"
+	local var="${2}"
+
+	var="NET_MODULE_${var}"
+
+	[[ -n "${!var}" ]] \
+		|| source "/lib/rc/net/${module}"
+	${module}_stop
+}
+
+stop_all_modules() {
+	local ret=0
+	stop_module "ip" "IP" || ret=1
+
+	return $ret
+}
+
+start_all_modules() {
+	local ret=0
+
+	start_module "netfilter" "NETFILTER" || return 1
+
+	start_module "sp" "SP" || return 1
+
+	if net_addrs_intersect ${ALL_LOCAL_ADDRS} ${EXTRA_LOCAL_ADDRS} ${ALL_EXTERNAL_ADDRS}; then
+		ewarn "Conflicts between addresses, aborting"
+		errormsg_add "les adresses locales et externes sont en conflit"
+		return 1
+	fi
+
+	start_module "ip" "IP" || return 1
+	
+	return 0
+}
+
+# In case we failed to start the whole config, we simply stop all modules,
+# then reload the netfilter config with /var/run/nonetwork present
+reset() {
+	stop_all_modules
+
+	start_module "netfilter" "NETFILTER"
+}
+
+do_start() {
+	import_files
+
+	local last=
+	
+	if [[ -e "${NONETWORK_MARK}" ]]; then
+		ewarn "Networking deactivated by init scripts"
+		errormsg_add "réseau désactivé par le système"
+		write_lock "type: wired\nlevel: 0\nRéseau désactivé"
+		return 0
+	fi
+
+	if ! check_networking; then
+		ewarn "No network card present"
+		errormsg_add "aucune carte réseau détectée"
+		write_lock "type: wired\nlevel: 0\nPas de carte réseau"
+		return 0
+	fi
+		
+	if ! get_conf; then
+		write_lock "type: wired\nlevel: 0\nConfiguration réseau incorrecte"
+		ewarn "Network config failed"
+		errormsg_add "l'importation de la configuration a échouée"
+		return 1
+	fi
+
+	start_all_modules || return 1
+}
+
+start() {
+	ebegin "Setting up networking"
+	if ! do_start; then
+		eend 1
+		touch "${NONETWORK_MARK}"
+		reset
+		return 0
+	fi
+	eend 0
+}
+
+stop() {
+	import_files
+
+	if ! config_local; then
+		ewarn "Failed to get local config, WTF ?"
+		# This should not happen (TM)
+		# Not much we can do except try to flush as much config as possible
+	fi
+
+	ebegin "Stopping networking"
+	write_lock "type: wired\nlevel: 0\nArrêt de l'interface réseau"
+	stop_all_modules
+	eend $?
+}
+

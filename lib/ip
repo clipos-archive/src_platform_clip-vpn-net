@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2007-2009 SGDN/DCSSI
+# Copyright 2010-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+NET_MODULE_IP="yes"
+
+ip_startif_extra() {
+	return 0
+}
+
+ip_route_extra() {
+	return 0
+}
+
+ROUTE_IMPORT_FILTER="${_IMPORT_FILTER_ADDR}/${_IMPORT_FILTER_MASK}:${_IMPORT_FILTER_ADDR}"
+ROUTE_MULTI_FILTER="${ROUTE_IMPORT_FILTER}( ${ROUTE_IMPORT_FILTER})*"
+
+ip_get_conf() {
+	local mtus=""
+
+	import_conf_all "${NET_FILE}" "[1-9][0-9]{2,3}" \
+		"RED_PORT_MTU" "BLACK_PORT_MTU" "ADMIN_PORT_MTU"  \
+		2>/dev/null 1>/dev/null 
+
+	import_conf_noerr "${NET_FILE}" "${ROUTE_MULTI_FILTER}" \
+		"ROUTE_EXTRA" 2>/dev/null 1>/dev/null
+
+	# No error if we fail to import MTUs or extra routes
+	return 0
+}
+
+ip_do_extra_routes() {
+	local dest gw r
+	for r in ${ROUTE_EXTRA}; do
+		dest="${r%%:*}"
+		gw="${r##*:}"
+		if [[ -z "${dest}" || -z "${gw}" ]]; then
+			net_warn "invalid extra route: ${r}"
+			continue
+		fi
+		einfo "Adding extra route to ${dest} via ${gw}"
+		if ! net_route_gtw "${gw}" "${dest}"; then
+			ewarn "Failed to add extra route : ${dest} via ${gw}"
+			errormsg_add "l'application de la règle de routage supplémentaire pour ${dest} a échoué"
+			return 1
+		fi
+	done
+}
+
+ip_check_dupip() {
+	local eth="${1}"
+	local addr="${2}"
+	net_ifup "${eth}"
+	checkip.sh "${eth}" "${addr}" "dupip" &
+	# Do not error out here, simply log the error
+	return 0
+}
+
+ip_check_default_route() {
+	local eth="$1"
+	local addr="${DEFAULT_ROUTE}"
+
+	[[ -f "/var/run/route_umts" ]] && addr="$(<"/var/run/route_umts")"
+	[[ -f "/var/run/route_dhcp" ]] && addr="$(<"/var/run/route_dhcp")"
+
+	[[ -n "${addr}" ]] || return 0
+
+	checkip.sh "${eth}" "${addr}" "route" &
+	# Do not error out here, simply log the error
+	return 0
+}
+
+ip_reset() {
+	ewarn "Could not start all ethernet interfaces, resetting config to local"
+	errormsg_add "la configuration des interfaces a échoué (mise en place de la configuration locale)"
+	local i
+	for i in 0 1 2; do
+		[[ -e "/sys/class/net/eth${i}" ]]  && net_stopif "eth${i}"
+	done
+	write_lock "type: wired\nlevel: 0\nEchec de configuration"
+}
+
+ip_set_mtu() {
+	local iface="${1}"
+	local mtu="${2}"
+
+	if [[ -n "${mtu}" && ${mtu} -le 1500 ]]; then
+		if ! net_set_mtu "${iface}" "${mtu}"; then
+			ewarn "Failed to set MTU ${mtu} on ${iface}"
+			errormsg_add "impossible d'attribuer la MTU ${mtu} à l'interface ${iface}"
+			return 1
+		fi
+	fi
+	return 0
+}
+
+ip_do_start() {
+	eindent
+	
+	local i var
+
+	if ! net_startif "${BLACK_PORT}" "${BLACK_PORT_ADDR}/${BLACK_PORT_MASK}"; then
+		ewarn "Failed to set up address ${BLACK_PORT_ADDR}/${BLACK_PORT_MASK} on black port"
+		errormsg_add "erreur dans l'attribution de l'adresse ${BLACK_PORT_ADDR}/${BLACK_PORT_MASK} sur le port noir"
+		return 1
+	fi
+	ip_set_mtu "${BLACK_PORT}" "${BLACK_PORT_MTU}" || return 1
+
+	if ! net_startif "${RED_PORT}" "${RED_PORT_ADDR}/${RED_PORT_MASK}"; then
+		ewarn "Failed to set up address ${RED_PORT_ADDR}/${RED_PORT_MASK} on red port"
+		errormsg_add "erreur dans l'attribution de l'adresse ${RED_PORT_ADDR}/${RED_PORT_MASK} sur le port rouge"
+		return 1
+	fi
+	ip_set_mtu "${RED_PORT}" "${BLACK_PORT_MTU}" || return 1
+
+	if [[ -n "${ADMIN_IF}" ]]; then
+		if ! net_startif "eth${ADMIN_IF}" "${ADMIN_PORT_ADDR}/${ADMIN_PORT_MASK}"; then
+			ewarn "Failed to set up address ${ADMIN_PORT_ADDR}/${ADMIN_PORT_MASK} on red port"
+			errormsg_add "erreur dans l'attribution de l'adresse ${ADMIN_PORT_ADDR}/${ADMIN_PORT_MASK} sur le port d'administration"
+			return 1
+		fi
+		ip_set_mtu "eth${ADMIN_IF}" "${ADMIN_PORT_MTU}" || return 1
+	fi
+	
+	if [ -f "/lib/rc/net/net.admin.extra" ]; then
+		source "/lib/rc/net/net.admin.extra"
+	fi
+
+	ip_check_default_route "${BLACK_PORT}" 
+	write_lock "type: wired\nlevel: 1\n${BLACK_PORT_ADDR}/${BLAC_PORT_MASK}"
+
+	eoutdent
+
+	if [[ -n "${ROUTE_EXTRA}" ]]; then
+		ip_do_extra_routes || return 1
+	fi
+		
+	if ! net_route_default "${DEFAULT_ROUTE}"; then
+		ewarn "Failed to set up default route ${DEFAULT_ROUTE}"
+		errormsg_add "l'application de la règle de routage principale (${DEFAULT_ROUTE}) a échoué"
+		return 1
+	fi
+}
+
+ip_start() {
+	if ! ip_get_conf; then
+		ip_reset
+		return 1
+	fi
+
+	if ! ip_do_start; then 
+		ip_reset
+		return 1
+	fi
+}
+
+ip_stop() {
+	net_stopif "${BLACK_PORT}"
+	net_stopif "${RED_PORT}"
+	if [[ -n "${ADMIN_IF}" ]]; then
+		# When we have a dedicated admin interface, we never bring it down.
+		# This is a FOO-specific kludge - we might need
+		# to do something more clever about it one day...
+		# It should not break anything since net_startif only outputs a warning 
+		# when it finds the interface is already up.
+		# We still need to flush the addresses, 
+		# or else net_startif will complain vigorously...
+		ip addr flush dev "eth${ADMIN_IF}"
+	fi
+	net_route_deldefault 2>/dev/null 
+	write_lock "type: wired\nlevel: 0\nArrêt du réseau"
+}

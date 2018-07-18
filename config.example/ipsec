@@ -1,0 +1,3 @@
+LOCAL_KEY=file	# => file.pvr and file.pwd in ike2/certs
+
+INITIATOR=yes	# yes: initiator+responder    no: responder only

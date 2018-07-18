@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+####################
+#       Peer       #
+####################
+
+let "num=0"
+
+for addr in ${PEER_ADDRS}; do
+	cat >>"${output_file}" <<EOF
+
+conn ${CONFIG_BASENAME}${num}
+	leftsubnet=${LOCAL_NETWORKS}
+	leftid="@@${LOCAL_KEY}"
+	right=${addr}
+	rightsubnet=${REMOTE_NETWORKS}
+	rightid="@@${PEER_PUBKEY}"
+	dpddelay=30s
+	dpdaction=restart
+	auto=add
+
+EOF
+
+if [[ -n "${PEER_ADMIN_NETWORKS}" ]]; then
+	cat >>"${output_file}" <<EOF
+
+conn admin-${CONFIG_BASENAME}${num}
+	leftsubnet=${LOCAL_NETWORKS}
+	leftid="@@admin"
+	right=${addr}
+	rightsubnet=${PEER_ADMIN_NETWORKS}
+	rightid="@@${PEER_PUBKEY}"
+	dpddelay=30s
+	dpdaction=restart
+	auto=add
+
+EOF
+fi
+
+		let "num+=1"
+	done
+	echo "${CONFIG_BASENAME}" >> "${gw_list}"
+

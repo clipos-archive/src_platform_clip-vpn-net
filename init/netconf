@@ -1,0 +1,249 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2009 SGDN/DCSSI
+# Copyright 2010-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+description="select a network profile and check it"
+
+depend() {
+	need veriexec clip_audit netlocal
+	keyword -timeout
+}
+
+NOCONF="/var/run/netconf_selected"
+
+NUM_CONFS=0
+declare -a CONFLIST=()
+CONF_SELECTED=""
+
+READ_TRIES=0
+
+check_extra() {
+	return 0
+}
+
+resolvconf_extra() {
+	return 0
+}
+
+import_extra_files() {
+	source /lib/clip/import.sub
+	source /lib/clip/prompt.sub
+	source /lib/rc/net/common
+
+	import_root_config 
+
+	source "/etc/conf.d/jail-net"
+
+	if [[ -f "/lib/rc/net/netconf_extra" ]]; then
+		source "/lib/rc/net/netconf_extra" \
+			|| ewarn "Failed to source netconf_extra"
+	fi
+}
+
+set_default_conf() {
+	if [[ -d "${CONFPATH}/default" ]]; then 
+		CONF_SELECTED="default"
+		rm -f "${CONFLINK}"
+		ln -sf "${CONFPATH}/${CONF_SELECTED}" "${CONFLINK}"
+	else
+		ewarn "No default configuration"
+		CONF_SELECTED=""
+		rm -f "${CONFLINK}"
+	fi
+}
+
+get_current() {
+	if [[ -L "${CONFLINK}" ]]; then
+		local cur="$(readlink "${CONFLINK}")"
+		CONF_SELECTED="${cur##*/}"
+	else 
+		set_default_conf
+	fi
+}
+
+get_list() {
+	if [[ -d "${CONFPATH}/default" ]]; then
+		CONFLIST[0]="default"
+		let "NUM_CONFS+=1"
+	fi
+	local list d
+	list="$(find "${CONFPATH}" -maxdepth 1 -mindepth 1 -type d -not -name default -printf "%f\n" | sort)"
+	# Note : we could fill in the array with an eval on find, but that might
+	# expose us to privilege elevation attacks from ADMIN...
+	for d in ${list}; do
+		CONFLIST[${NUM_CONFS}]="${d}"
+		let "NUM_CONFS+=1"
+	done
+}
+
+check_addrs() {
+	local jail="${1}"
+	shift
+
+	local xid="$(</etc/jails/${jail}/context)"
+	if [[ -z "${xid}" ]]; then
+		ewarn "Impossible to read context id for jail ${jail} to check its address"
+		return 1
+	fi
+
+	local addrs=
+	addrs="$(awk '$1 ~ /[0-9]+:/ {print $2}' "/proc/virtnet/${xid}/info" 2>/dev/null | sed -e 's:\[\(.*\)-.*:\1:' )"
+	[[ -z "${addrs}" ]] && return 0 # Jail not active ?
+
+	for naddr in "${@}"; do
+		if ! echo "${addrs}" | grep -qw "${naddr}"; then
+			ewarn "New configuration would change addresses for jail ${jail}, reboot is needed"
+		fi
+	done
+	return 0
+}
+
+validate_conf() {
+	local conf="${CONFLINK}"
+	[[ -e "${conf}" ]] || conf="/etc/admin/conf.d"
+
+	# Note : we don't care about 'virtual' addresses
+	import_conf_noerr "${NET_CONST_FILE}" "${_IMPORT_FILTER_ADDR}" \
+			ADMIN_ADDR AUDIT_ADDR UPDATE_ADDR 2>/dev/null
+
+	if [[ -n "${ADMIN_ADDR}" ]]; then
+		check_addrs "admin" "${ADMIN_LOCAL_ADDR}" "${ADMIN_ADDR}" || return 1
+	else
+		check_addrs "admin" "${ADMIN_LOCAL_ADDR}" || return 1
+	fi
+	if [[ -n "${AUDIT_ADDR}" ]]; then
+		check_addrs "audit" "${AUDIT_LOCAL_ADDR}" "${AUDIT_ADDR}" || return 1
+	else
+		check_addrs "audit" "${AUDIT_LOCAL_ADDR}" || return 1
+	fi
+	if [[ -n "${UPDATE_ADDR}" ]]; then
+		check_addrs "update" "${UPDATE_LOCAL_ADDR}" "${UPDATE_ADDR}" || return 1
+	else
+		check_addrs "update" "${UPDATE_LOCAL_ADDR}" || return 1
+	fi
+
+	check_extra "${conf}" || return 1
+	return 0
+}
+
+set_nonetwork() {
+	touch "${NETLOCAL_MARK}"
+	touch "${DOWNLOAD_LOCK}"
+}
+
+install_conf() {
+	local ret=0
+	ebegin "Activation de la configuration ${CONF_SELECTED}"
+	
+	rm -f "${CONFLINK}"
+	ln -sf "${CONFPATH}/${CONF_SELECTED}" "${CONFLINK}" || ret=1
+
+	import_conf_noerr "${NET_FILE}" "yes|no" DOWNLOAD_LOCKED NO_NETWORK 2>/dev/null
+
+	if [[ "${DOWNLOAD_LOCKED}" == "yes" ]]; then
+		vsctl update enter -- /bin/killall clip_download 2>/dev/null
+		touch "${DOWNLOAD_LOCK}"
+	else
+		rm -f "${DOWNLOAD_LOCK}"
+	fi
+
+	[[ "${NO_NETWORK}" == "yes" ]] && set_nonetwork
+
+	if [[ -f "${CONFLINK}/resolv.conf" ]]; then
+		cp -pf "${CONFLINK}/resolv.conf" "/etc/admin/resolv.conf" || ret=1
+	fi
+	if [[ -f "${CONFLINK}/hosts" ]]; then
+		cp -pf "${CONFLINK}/hosts" "/etc/admin/hosts" || ret=1
+	fi
+	resolvconf_extra "${CONFLINK}" || ret=1
+	eend $ret
+}
+
+update_netint() {
+	local macfile_list="/mounts/admin_priv/var/run/wired_mac /mounts/update_priv/var/run/wired_mac"
+	for macfile in ${macfile_list}; do
+		rm -f -- "${macfile}"
+	done
+	# N.B. : config_common is not called in netconf, therefore
+	# IF_NUMBER is not decremented...
+	local umask=$(umask)
+	umask 0022
+	local i
+	for i in $(seq 0 $(( ${IF_NUMBER} - 1 ))); do
+		local mac="$(cat /sys/class/net/eth${i}/address 2>/dev/null)" 
+		if [[ -n "${mac}" ]]; then 
+			echo -n "${mac}" > "/mounts/admin_priv/var/run/has_if_eth${i}"
+			# Compat with clip-config
+			if [[ $i -eq 0 ]]; then
+				for macfile in ${macfile_list}; do
+					echo -n "${mac}" > "${macfile}"
+				done
+			fi
+		else
+			rm -f "/mounts/admin_priv/var/run/has_if_eth${i}"
+		fi
+	done
+	umask $umask
+
+	local wlan_if
+	wlan_if="$(basename $(dirname $(grep -l DEVTYPE=wlan /sys/class/net/*/uevent |head -n 1) 2>/dev/null) 2>/dev/null)"
+
+	if [[ -n "${wlan_if}" ]]; then
+		# Save WLAN MAC to display it in clip-config
+		# Might be needed to configure MAC-filters on some *boxes.
+		cat /sys/class/net/${wlan_if}/address \
+			> "/mounts/admin_priv/var/run/has_wifi"
+	else
+		rm -f "/mounts/admin_priv/var/run/has_wifi"
+	fi
+}
+
+start() {
+	import_extra_files
+	update_netint
+
+	rm -f "${NONETWORK_MARK}" "${NETLOCAL_MARK}"
+	errormsg_clean
+	write_lock "type: wired\nlevel: 0"
+	netlist_update
+
+	if ! check_networking; then
+		einfo "No network card"
+		return 0
+	fi
+
+	# Re-validate the current config
+	get_current
+
+	if [[ -e "${NOCONF}" ]]; then
+		if validate_conf; then
+			install_conf || touch "${NONETWORK_MARK}"
+			return 0
+		else
+			touch "${NONETWORK_MARK}"
+			touch "${DOWNLOAD_LOCK}"
+			return 0
+		fi
+	fi
+
+	get_list
+
+	if [[ "${BOOT_MENU}" == "yes" ]] && [[ ${NUM_CONFS} -gt 1 ]]; then
+		prompt_user CONF_SELECTED "Plusieurs configurations réseau sont disponibles" 30 3 \
+			"${CONFLIST[@]}"
+	elif [[ "${BOOT_LASTUSED}" == "no" ]]; then
+		set_default_conf
+	fi
+	netchoice_set
+
+	[[ -z "${CONF_SELECTED}" ]] && set_nonetwork
+
+	touch "${NOCONF}" # Avoid reselecting on restart
+	[[ -n "${CONF_SELECTED}" ]] && install_conf
+	return 0
+}
+

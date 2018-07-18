@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2007-2009 SGDN/DCSSI
+# Copyright 2010-2013 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+NET_MODULE_SP="yes"
+
+sp_do_start() {
+	if [[ -n "${NET_NO_INTERFACE}" ]]; then
+		vewarn "No network card, loading default IPsec policies"
+		source /etc/ipsec_default.conf
+		return 0
+	fi
+	if [[ -f "${NONETWORK_MARK}" ]] ; then 
+		vewarn "Fail-safe mode: loading default IPsec policies"
+		source /etc/ipsec_default.conf
+		return 0
+	fi
+	local ret=0
+	vebegin "Loading IPsec policies from /etc/ipsec.conf"
+	source /etc/ipsec.conf || ret=1
+	veend $ret
+	return $ret
+}
+
+sp_reset() {
+	ewarn "Failed to load IPsec policies, resetting to failsafe mode"
+	errormsg_add "erreur dans la définition des politiques IPsec statiques"
+	source /etc/ipsec_default.conf
+}
+
+sp_start() {
+	sp_do_start || sp_reset
+}
+

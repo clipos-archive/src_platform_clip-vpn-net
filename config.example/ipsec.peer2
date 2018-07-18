@@ -1,0 +1,7 @@
+PEER_ADDRS=10.0.4.1 10.0.4.2
+
+PEER_PUBKEY=peer2 # => peer1.ppr in ike2/certs
+
+PEER_NETWORKS=192.168.220.0/24 192.168.230.0/24
+
+FILTERING=no

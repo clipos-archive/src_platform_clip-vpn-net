@@ -1,0 +1,263 @@
+#!/sbin/runscript
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2007-2009 SGDN/DCSSI
+# Copyright 2010-2014 SGDSN/ANSSI
+# Author: Vincent Strubel <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+description="start the ipsec keying daemon and the networking monitor"
+
+depend() {
+	need reducecap networking clip_audit
+	provide kmpd netservice
+}
+
+IPSEC_CONF="/var/run/ipsec.conf"
+IPSEC_GWLIST="/var/run/ipsec_gw.list"
+IKE_VSCTL_COOKIE="/var/run/ike.cookie"
+
+PUBKEY_FILTER='[_a-zA-Z0-9]*'
+
+import_files() {
+	source /lib/clip/import.sub
+	source /lib/clip/net.sub
+	source /lib/rc/net/common
+}
+
+get_conf() {
+	config_common || return 1
+}
+
+### ipsec.conf set up ###
+
+# Output the ipsec.conf conn section(s) for a peer (admin or regular)
+output_connection() {
+	local output_file="${1}" # output file path
+	local gw_list="${2}" # gw_list file path
+	local name="${3}" # base name for the conn section(s)
+	local conf="${4}" # config file to import
+	local LOCAL_NETWORKS="${5}" # local networks selector, comma-separated
+
+	local PEER_ADDRS PEER_PUBKEY PEER_NETWORKS
+	local PEER_ADMIN_NETWORKS
+	local LOCAL_KEY
+
+	import_conf_noerr "${conf}" "${ADDR_MULTI_FILTER}" \
+		"PEER_ADDRS" || return 1
+	import_conf_noerr "${conf}" "${NET_MULTI_FILTER}" \
+		"PEER_NETWORKS" || return 1
+	import_conf_noerr "${conf}" "${PUBKEY_FILTER}" \
+		"PEER_PUBKEY" || return 1
+	# Optional : remotely administer peer
+	import_conf_noerr "${conf}" "${NET_MULTI_FILTER}" \
+		"PEER_ADMIN_NETWORKS" 2>/dev/null
+
+	import_conf_noerr "${PEER_PATH}/ipsec" "${PUBKEY_FILTER}" \
+		"LOCAL_KEY" || return 1
+
+	local REMOTE_NETWORKS="$(echo "${PEER_NETWORKS}" | sed -e 's/ /,/g')"
+	local PEER_ADMIN_NETWORKS="$(echo "${PEER_ADMIN_NETWORKS}" | sed -e 's/ /,/g')"
+
+	CONFIG_BASENAME="${name}"
+
+	source /etc/ike2/ipsec.conf.peer # generates peer-specific definitions
+}
+
+output_config() {
+	local output_file="${1}"
+	local gw_list="${2}"
+
+	source /etc/ike2/ipsec.conf.common || return 1 # common base
+
+	if [[ -e "${ADMIN_FILE}" ]]; then
+		# We have a remote admin peer 
+		local adm_nets="${UPDATE_ADDR}/32,${ADMIN_ADDR}/32,${AUDIT_ADDR}/32"
+		if ! output_connection "${output_file}" "${gw_list}" \
+				"admin" "${ADMIN_FILE}" "${adm_nets}" ""; then
+			ewarn "Failed to setup the configuration for the admin connection"
+			return 1
+		fi
+	fi
+
+	for peer in "${PEER_PATH}"/ipsec.*; do
+		[[ -f "${peer}" ]] || continue
+		
+		# Derive a reasonable conn. name from config file basename
+		local name="$(echo "${peer##*/ipsec.}" | tr -cd '[[:alnum:]]')"
+		if [[ -z "${name}" ]]; then
+			ewarn "Failed to get chain name for peer: ${peer}"
+			return 1
+		fi
+		if [[ "${name}" == "admin" ]]; then
+			ewarn "Invalid peer name : ${peer}"
+			return 1
+		fi
+
+		local client_nets="$(echo "${RED_PORT_NETWORKS}" | sed -e 's/ /,/g')"
+		if ! output_connection "${output_file}" "${gw_list}" \
+				"${name}" "${peer}" "${client_nets}"; then
+			ewarn "Failed to setup the configuration for peer: ${name}"
+			return 1
+		fi
+	done
+}
+
+### monitor ###
+
+start_monitor() {
+	start-stop-daemon -S -b -p "${MONITOR_PIDFILE}" -x /sbin/netmonitor.sh -- eth0 "$1"
+}
+
+run_monitor() {
+	if [[ -f "/var/run/umts_if" ]]; then
+		start_monitor umts
+		return $?
+	fi
+
+	if [[ -f "/var/run/wlan_if" ]]; then
+		start_monitor wifi
+		return $?
+	fi
+		
+	# eth0 is wired
+	if [[ -n "${BLACK_PORT_ADDR}" ]]; then
+		start_monitor wired
+		return $?
+	else
+		return 0
+	fi
+}
+
+stop_monitor() {
+	if [[ -e "${MONITOR_PIDFILE}" ]]; then
+		start-stop-daemon -K -p "${MONITOR_PIDFILE}" -n netmonitor.sh 
+		rm -f "${MONITOR_PIDFILE}" 2>/dev/null
+	fi
+}
+
+
+### iked ###
+
+iked_wait_loop() {
+	local -i cnt=0
+	local ctx="${1}"
+	while true; do
+		local tskcnt="$(awk '$1 == "Tasks:" {print $2}' "/proc/virtual/${ctx}/status")"
+		[[ "${tskcnt}" != "1" ]] && break
+		sleep 0.5
+		let "cnt+=1"
+		if [[ ${cnt} -ge 10 ]]; then
+			ewarn "Timed-out waiting for charon"
+			errormsg_add "échec du lancement du démon IKE (IPsec)"
+			return 1
+		fi
+	done
+}
+
+start_iked() {
+	local ret=0
+	local mask="$(net_get_nbrdots_mask "${BLACK_PORT_MASK}")"
+	if [[ -z "${mask}" ]]; then
+		ewarn "Invalid or unsupported mask: ${BLACK_PORT_MASK}"
+		return 1
+	fi
+
+	local ctx="$(<"/etc/jails/ike/context")"
+	if [[ -z "${ctx}" ]]; then
+		ewarn "Cannot find IKE context"
+		return 1
+	fi
+
+	local cookie="$(vsctl ike cookie)"
+	VSCTL_MAGIC_COOKIE="${cookie}" vsctl -a "${BLACK_PORT_ADDR}/${mask}" ike setup 1>/dev/null || ret=1
+	ipsec start 1>/dev/null 2>/dev/null || ret=1
+
+	iked_wait_loop "${ctx}" || ret=1
+	local mask="$(umask)"
+	umask 0066
+	rm -f "${IKE_VSCTL_COOKIE}"
+	# Leave the context in setup, so that charon can be restarted on error
+	echo -n "${cookie}" > "${IKE_VSCTL_COOKIE}"
+	umask "${mask}"
+	return $ret
+}
+
+do_start() {
+	local ret=0
+	if ! get_conf ; then
+		ewarn "Configuration failed, charon will not be started"
+		touch ${NONETWORK_MARK}
+		return 0
+	fi
+	output_config "${IPSEC_CONF}" "${IPSEC_GWLIST}" || return 1
+	if [[ -f "/var/run/charon.pid" ]]; then
+		killall charon 2>/dev/null
+		killall -9 charon 2>/dev/null
+		rm -f "/var/run/charon.pid"
+	fi
+	if [[ -f "/var/run/starter.pid" ]]; then
+		killall starter 2>/dev/null
+		killall -9 starter 2>/dev/null
+		rm -f "/var/run/starter.pid"
+	fi
+	if grep -q '^conn' "${IPSEC_CONF}"; then
+		start_iked || ret=1
+	else
+		ewarn "No connection defined, strongswan will not be started"
+	fi
+
+	return $ret
+}
+
+start() {
+	import_files
+
+	if [[ -e "${NONETWORK_MARK}" ]]; then
+		ewarn "Fail-safe mode detected, charon will not be started"
+		return 0
+	fi
+	if ! check_networking; then
+		ewarn "No network card, charon will not be started"
+		return 0
+	fi
+
+	ebegin "Starting charon"
+	do_start
+	eend $?
+	ebegin "Starting ipsec monitor"
+	run_monitor
+	eend $?
+}
+
+stop() {
+	import_files
+
+	if [ -f /var/run/charon.pid ]; then
+		ebegin "Stopping charon"
+		local ret=0
+		# kill `cat /var/run/iked.pid` would be cleaner, but 
+		# killall is the workaround for killing privileged daemons
+		# with CLSM ATM.
+		ipsec stop 1>/dev/null 2>/dev/null || ret=1
+		rm -f "${IPSEC_CONF}" "${IPSEC_GWLIST}"
+		if [[ -f "${IKE_VSCTL_COOKIE}" ]]; then	
+			# No need to put an actual address here
+			VSCTL_MAGIC_COOKIE="$(<"${IKE_VSCTL_COOKIE}")" \
+				vsctl -a "127.0.42.1/255.255.255.0" ike endsetup 1>/dev/null || ret=1
+			rm -f "${IKE_VSCTL_COOKIE}"
+		fi
+		vsctl ike stop 1>/dev/null 2>/dev/null && ret=0
+		eend $ret
+	fi
+	stop_monitor
+	# Reset all virtual-IP jails to local-only addresses
+	local f
+	for f in /var/run/*-virtual; do
+		[[ -f "${f}" ]] || continue
+	
+		UPDOWN_CONFIG="$(basename ${f%-virtual})" UPDOWN_ACTION="down" \
+		UPDOWN_VIRTUAL_IP="fake" \
+			ipsec-updown
+	done
+}

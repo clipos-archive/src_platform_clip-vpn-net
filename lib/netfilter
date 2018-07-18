@@ -1,0 +1,574 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Copyright © 2014-2018 ANSSI. All Rights Reserved.
+# Copyright 2006-2009 SGDN/DCSSI
+# Copyright 2010-2015 SGDSN/ANSSI
+# Authors: Vincent Strubel <clipos@ssi.gouv.fr>
+#          Mickaël Salaün <clipos@ssi.gouv.fr>
+# Distributed under the terms of the GNU Lesser General Public License v2.1
+
+NET_MODULE_NETFILTER="yes"
+
+SINGLEPORT_IMPORT_FILTER="[0-9]{2,5}"
+MULTIPORT_IMPORT_FILTER="-|([0-9]{1,5}(:[0-9]{1,5})?(,[0-9]{1,5}(:[0-9]{1,5})?)*)"
+SAME_IMPORT_FILTER="${MULTIPORT_IMPORT_FILTER}"
+
+NETFILTER_IMPORT_NOLOG="NOLOG_BLACK_TCP NOLOG_BLACK_UDP NOLOG_RED_TCP NOLOG_RED_UDP"
+
+netfilter_get_conf() {
+	# Logging limits
+	import_conf_noerr "${NETFILTER_FILE}" "[a-z]{2,6}" \
+			"ILLEGAL_LOGLEV" 2>/dev/null \
+		|| ILLEGAL_LOGLEV="info"
+	import_conf_noerr "${NETFILTER_FILE}" "[0-9]{1,3}/minute" \
+			"ILLEGAL_LOGLIM" 2>/dev/null\
+		|| ILLEGAL_LOGLIM="10/minute"
+
+	# Inbound packets to drop without logging on red/black ports
+	import_conf_all "${NETFILTER_FILE}" "${MULTIPORT_IMPORT_FILTER}" \
+		${NETFILTER_IMPORT_NOLOG} 2>/dev/null
+	[[ -z "${NOLOG_BLACK_UDP}" ]] && NOLOG_BLACK_UDP="all"
+	[[ -z "${NOLOG_BLACK_TCP}" ]] && NOLOG_BLACK_TCP="-"
+	[[ -z "${NOLOG_RED_UDP}" ]] && NOLOG_RED_UDP="-"
+	[[ -z "${NOLOG_RED_TCP}" ]] && NOLOG_RED_TCP="-"
+
+	# Remote logging (assumed to be always active in real-life deployments)
+	import_conf_noerr "${SYSLOG_FILE}" "${SINGLEPORT_IMPORT_FILTER}" \
+			"REMOTE_LOG_PORT" 2>/dev/null \
+		|| REMOTE_LOG_PORT="601"
+}
+
+do_admin_ipsec() {
+	local PEER_ADDRS
+	import_conf_noerr "${ADMIN_FILE}" "${ADDR_MULTI_FILTER}" \
+		"PEER_ADDRS" \
+		|| return 1
+
+	if [[ -n "${ADMIN_IF}" ]]; then
+		for in_if in eth0 eth1; do
+			force_ipsec_forward "update1" "${in_if}" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+				|| return 1
+			force_ipsec_forward "admin1" "${in_if}" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+				|| return 1
+			force_ipsec_forward "audit1" "${in_if}" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+				|| return 1
+		done
+	else
+		force_ipsec_forward "update1" "-" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+			|| return 1
+		force_ipsec_forward "admin1" "-" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+			|| return 1
+		force_ipsec_forward "audit1" "-" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+			|| return 1
+	fi
+
+	pass_ipsec_if "${BLACK_PORT}" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+		|| return 1
+}
+
+do_peer_ipsec() {
+	local peer="${1}"
+	local PEER_ADDRS
+
+	import_conf_noerr "${peer}" "${ADDR_MULTI_FILTER}" \
+		"PEER_ADDRS" \
+		|| return 1
+
+	pass_ipsec_if "${BLACK_PORT}" "${BLACK_PORT_ADDR}" "${PEER_ADDRS}" \
+		|| return 1
+}
+
+# The /etc/jails/<jail_name>/netfilter file can set {RED,BLACK}_IN_TCP=<port>
+# to listen on the black or red interface. The jail must have a veth and it's
+# IP in /etc/conf.d/jail-net in the form of <JAIL_NAME>_LOCAL_ADDR=<ip>
+# according to it's name. The jail's context is used to mark outgoing packets
+# to bypass IPsec restrictions and be send in cleartext.
+setup_jail_netfilter() {
+	local jailpath="${1}"
+	local jail="${jailpath##*/}"
+	local veth="${jail//_}"
+	local ctx="$(<"${jailpath}/context")"
+
+	if [[ -z "${ctx}" ]]; then
+		ewarn "No context for jail ${jail}, skipping netfilter rules"
+		return 0
+	fi
+
+	# Black is eth0
+	local black_if="eth0"
+	# Red is eth1
+	local red_if="eth1"
+
+	local side
+	for side in "red" "black"; do
+		# setup_pass_args_* "${side^^}"
+		local port="$(awk -F'=' "\$1 == \"${side^^}_IN_TCP\" {print \$2}" "${jailpath}/netfilter")"
+		port="${port//[\"\']/}"
+		if [[ -z "${port}" ]]; then
+			continue
+		fi
+
+		ebegin "Setting up the ${side} side for jail ${jail}"
+		local side_if="${side}_if"
+		side_if="${!side_if}"
+
+		# clip-vpn-net specific:
+		local side_nat_var="${side^^}_PORT_ADDR"
+
+		local side_nat_addr="${!side_nat_var}"
+		if [[ -z "${side_nat_addr}" ]]; then
+			eend 1 "No address for ${side_if}, skipping netfilter rules"
+			return 1
+		fi
+
+		local jail_nat_var="${jail^^}_LOCAL_ADDR"
+		local jail_nat_addr="${!jail_nat_var}"
+		if [[ -z "${jail_nat_addr}" ]]; then
+			eend 1 "No address for ${veth}0, skipping netfilter rules"
+			return 1
+		fi
+
+		dnat_if "${side_if}" "tcp" "${side_nat_addr}" "${jail_nat_addr}" "${port}" || return 1
+		snat_cleartext_forward "${veth}1" "${side_if}" "${side_nat_addr}" "0x${ctx}" || return 1
+		bypass_ipsec "${side_if}" "0x${ctx}" || return 1
+		declare -A PASS_ARGS
+		PASS_ARGS["in_tcp"]="${port}"
+		pass_compartment "${veth}1" "${side_if}" "jail${veth}clear" "forward:in" "${jail_nat_addr}" "-" || return 1
+		unset PASS_ARGS
+
+		eend 0
+		# Only expose one side
+		break
+	done
+}
+
+config_jail_netfilter() {
+	local jailpath
+	for jailpath in "/etc/jails/"*; do
+		if [[ -e "${jailpath}/netfilter" ]]; then
+			setup_jail_netfilter "${jailpath}" || return 1
+		fi
+	done
+}
+
+netfilter_init() {
+	set_default_rules || return 1
+	if [[ -e "${ADMIN_FILE}" ]]; then
+		do_admin_ipsec || return 1
+	fi
+
+	# Must be called before force_ipsec_if
+	config_jail_netfilter
+
+	# Force internal network encapsulation on external interface, globally
+	force_ipsec_if "eth0" "! ${BLACK_PORT_ADDR}" "${BLACK_PORT_ADDR}" || return 1
+
+	for peer in "${PEER_PATH}"/ipsec.*; do
+		[[ -f "${peer}" ]] || continue
+		do_peer_ipsec "${peer}" || return 1
+	done
+}
+
+# Create a set of admin/audit/update stateless rules, to and from
+# a given interface
+# Args: <iface>
+create_admin_stateless_rules() {
+	local iface="${1}"
+
+	# UPDATE
+	declare -A PASS_ARGS=(
+		["out_tcp"]="53,80,443"
+		["out_udp"]="53"
+		["out_udpsame"]="123"
+	)
+	pass_compartment "update1" "${iface}" \
+			"update-${iface}" "forward:out" "-" "-" \
+			|| return 1
+	unset PASS_ARGS
+
+	# ADMIN
+	declare -A PASS_ARGS=(
+		["in_tcp"]="22"
+	)
+	pass_compartment "admin1" "${iface}" \
+			"admin-${iface}" "forward:in" "-" "-" \
+			|| return 1
+	unset PASS_ARGS
+
+	# AUDIT
+	declare -A PASS_ARGS=(
+		["in_tcp"]="23"
+		["out_tcp"]="${REMOTE_LOG_PORT}"
+	)
+	pass_compartment "audit1" "${iface}" \
+			"audit-${iface}" "forward:inout" "-" "-" \
+			|| return 1
+	unset PASS_ARGS
+}
+
+# Create snat/dnat rules for admin/audit/update connections without
+# ipsec, on a given interface
+# Args: <iface> <nat_addr>
+create_admin_nat_rules() {
+	local iface="${1}"
+	local nat_addr="${2}"
+
+	snat_cleartext_forward "admin1" "${iface}" \
+		"${nat_addr}" "0x501" \
+		|| return 1
+	snat_cleartext_forward "audit1" "${iface}" \
+		"${nat_addr}" "0x503" \
+		|| return 1
+	dnat_if "${iface}" "tcp" \
+		"${nat_addr}" "${ADMIN_ADDR}" "22" \
+		|| return 1
+	dnat_if "${iface}" "tcp" \
+		"${nat_addr}" "${AUDIT_ADDR}" "23" \
+		|| return 1
+}
+
+# ADMIN/AUDIT/UPDATE remote connections, through ipsec on black port
+# or directly on red port or admin port
+netfilter_admin() {
+	if [[ -n "${ADMIN_IF}" ]]; then
+		local iface="eth${ADMIN_IF}"
+		# local update, admin and audit on
+		# admin port
+		if ! create_admin_stateless_rules "${iface}" ; then
+			ewarn "Failed to create admin rules on ${iface}"
+			return 1
+		fi
+		if ! create_admin_nat_rules "${iface}" "${ADMIN_PORT_ADDR}" ; then
+			ewarn "Failed to create admin NAT rules on ${iface}"
+			return 1
+		fi
+	fi
+
+	if [[ -e "${ADMIN_FILE}" ]]; then
+		# remote admin -> update, admin, audit on
+		# black port
+		if ! create_admin_stateless_rules "${BLACK_PORT}" ; then
+			ewarn "Failed to create admin rules on ${BLACK_PORT}"
+			return 1
+		fi
+		# No NAT, IPsec
+	fi
+	if [[ "${RED_PORT_ADMIN}" == "yes" ]]; then
+		# local update, admin and audit on
+		# red port
+		if ! create_admin_stateless_rules "${RED_PORT}" ; then
+			ewarn "Failed to create admin rules on ${RED_PORT}"
+			return 1
+		fi
+		if ! create_admin_nat_rules "${RED_PORT}" "${RED_PORT_ADDR}" ; then
+			ewarn "Failed to create admin NAT rules on ${RED_PORT}"
+			return 1
+		fi
+	fi
+}
+
+# Create forward pass rules for a single peer, with filtering
+# Args: <chain name> <peer networks> <config file>
+do_peer_forward_filtering() {
+	local name="${1}"
+	local nets="${2}"
+	local conf="${3}"
+
+	# import variables
+	local PEER_IN_TCP PEER_IN_UDP PEER_IN_SAME_TCP PEER_IN_SAME_UDP 
+	local PEER_OUT_TCP PEER_OUT_UDP PEER_OUT_SAME_TCP PEER_OUT_SAME_UDP
+	local PEER_IN_PING PEER_OUT_PING
+
+	import_conf_all "${conf}" "${MULTIPORT_IMPORT_FILTER}" \
+		"PEER_IN_TCP PEER_IN_UDP PEER_OUT_TCP PEER_OUT_UDP" 2>/dev/null \
+		|| return 1
+	import_conf_all "${conf}" "${SAME_IMPORT_FILTER}" \
+		"PEER_IN_SAME_TCP PEER_IN_SAME_UDP PEER_OUT_SAME_TCP PEER_OUT_SAME_UDP" 2>/dev/null \
+		|| return 1
+	import_conf_all "${conf}" "yes|no" \
+		"PEER_IN_PING PEER_OUT_PING" \
+		|| return 1
+	
+	declare -A PASS_ARGS
+	setup_pass_args_in "PEER"
+	setup_pass_args_out "PEER"
+	[[ "${PEER_IN_PING}" == "yes" ]] && PASS_ARGS["in_ping"]="yes"
+	[[ "${PEER_OUT_PING}" == "yes" ]] && PASS_ARGS["out_ping"]="yes"
+
+	create_stateless_chains "inout" "${name}" || return 1
+	unset PASS_ARGS
+	
+	# Allow error messages, in and out
+	pass_icmp "inout" "${name}" || return 1
+
+	_finish_stateless_chains "${name}" || return 1
+
+	for net_local in ${RED_PORT_NETWORKS}; do
+		for net_remote in ${nets}; do
+			plug_stateless_chains "${RED_PORT}" "${BLACK_PORT}" \
+				"${name}" "forward" "${net_local}" "${net_remote}" \
+				|| return 1
+		done
+	done
+}
+
+# Create forward pass rules for a single peer, without filtering
+# Args: <chain name> <peer networks>
+do_peer_forward_no_filtering() {
+	local name="${1}"
+	local nets="${2}"
+
+	_init_stateless_chains "inout" "${name}" || return 1
+
+	_pass_all_stateless_chains "${name}" || return 1
+
+	for net_local in ${RED_PORT_NETWORKS}; do
+		for net_remote in ${nets}; do
+			plug_stateless_chains "${RED_PORT}" "${BLACK_PORT}" \
+				"${name}" "forward" "${net_local}" "${net_remote}" \
+				|| return 1
+		done
+	done
+}
+
+# Create forward pass rules to remotely administer a peer
+# (outbound SSH, inbound syslog) if that peer config
+# define PEER_ADMIN_NETWORKS
+# Args: <chain name> <config file>
+do_peer_forward_admin() {
+	local name="${1}"
+	local conf="${2}"
+
+	# import variables
+	local PEER_ADMIN_NETWORKS
+
+	import_conf_noerr "${conf}" "${NET_MULTI_FILTER}" \
+		"PEER_ADMIN_NETWORKS" 2>/dev/null 
+
+	[[ -n "${PEER_ADMIN_NETWORKS}" ]] || return 0
+	
+	# To keep things simple, we create a single set of chains for 
+	# all three remote jails, which is too permissive.
+	# We also assume that the remote peer uses the same remote log port
+	# as we do...
+	declare -A PASS_ARGS=(
+		["out_tcp"]="22,23"
+		["in_tcp"]="53,443,${REMOTE_LOG_PORT}"
+		["in_udp"]="53"
+		["in_udpsame"]="123"
+	)
+	create_stateless_chains "inout" "${name}-admin" || return 1
+	unset PASS_ARGS
+	
+	# Allow error messages, in and out
+	pass_icmp "inout" "${name}-admin" || return 1
+
+	_finish_stateless_chains "${name}-admin" || return 1
+
+	for net_local in ${RED_PORT_NETWORKS}; do
+		for net_remote in ${PEER_ADMIN_NETWORKS}; do
+			plug_stateless_chains "${RED_PORT}" "${BLACK_PORT}" \
+				"${name}-admin" "forward" "${net_local}" "${net_remote}" \
+				|| return 1
+		done
+	done
+}
+
+# Create forward pass rules for a single peer defined in 
+# a $CONF_DIR/ipsec.* config file
+do_peer_forward() {
+	local peer="${1}" # config file
+	# chain name: keep only alphanumeric chars in <peer> from config
+	# basename
+	local name="$(echo "${peer##*/ipsec.}" | tr -cd '[[:alnum:]]')"
+	if [[ -z "${name}" ]]; then
+		ewarn "Failed to get chain name for peer: ${peer}"
+		return 1
+	fi
+	# filter out some configs resulting in chain names that are already
+	# in use...
+	case "${name}" in
+		admin|audit|update)
+			ewarn "Invalid peer name : ${name} (${peer})"
+			return 1
+			;;
+		*)
+			;;
+	esac
+
+	local PEER_NETWORKS FILTERING
+
+	if ! import_conf_noerr "${peer}" "${NET_MULTI_FILTER}" "PEER_NETWORKS" 2>/dev/null; then
+		ewarn "Failed to import peer networks for peer ${peer}"
+		return 1
+	fi
+
+	# Do we need to filter connections ?
+	import_conf_noerr "${peer}" "yes|no" "FILTERING" 2>/dev/null
+
+	if [[ "${FILTERING}" == "yes" ]]; then
+		do_peer_forward_filtering "${name}" "${PEER_NETWORKS}" "${peer}" || return 1
+	else
+		do_peer_forward_no_filtering "${name}" "${PEER_NETWORKS}" || return 1
+	fi
+
+	# Optionally create remote administration rules for every peer
+	do_peer_forward_admin "${name}" "${peer}" || return 1
+
+	return $?
+}
+
+netfilter_peers() {
+	for peer in "${PEER_PATH}"/ipsec.*; do
+		[[ -f "${peer}" ]] || continue
+		do_peer_forward "${peer}" || return 1
+	done
+
+}
+	
+# Drop inbound packets without logging, on both the iface address and
+# the corresponding broadcast address
+# args : <iface> <address> <mask> <TCP ports> <UDP ports>
+do_nolog() {
+	local iface="${1}"
+	local addr="${2}"
+	local mask="${3}"
+	local tcp_ports="${4}"
+	local udp_ports="${5}"
+
+	local bcast="$(net_get_bcast "${addr}" "${mask}")"
+	if [[ -z "${bcast}" ]]; then
+		ewarn "Failed to get broadcast address for ${addr}/${mask}"
+		return 0
+	fi
+
+	if [[ "${tcp_ports}" != "-" ]]; then
+		drop_nolog "in" "INPUT" "${iface}" "${addr}" "tcp" "${tcp_ports}" \
+			|| return 1
+		drop_nolog "in" "INPUT" "${iface}" "${bcast}" "tcp" "${tcp_ports}" \
+			|| return 1
+	fi
+	if [[ "${udp_ports}" != "-" ]]; then
+		drop_nolog "in" "INPUT" "${iface}" "${addr}" "udp" "${udp_ports}" \
+			|| return 1
+		drop_nolog "in" "INPUT" "${iface}" "${bcast}" "udp" "${udp_ports}" \
+			|| return 1
+	fi
+}
+
+netfilter_nolog() {
+	do_nolog "${BLACK_PORT}" "${BLACK_PORT_ADDR}" "${BLACK_PORT_MASK}" \
+			"${NOLOG_BLACK_TCP}" "${NOLOG_BLACK_UDP}" \
+			|| return 1
+	do_nolog "${RED_PORT}" "${RED_PORT_ADDR}" "${RED_PORT_MASK}" \
+			"${NOLOG_RED_TCP}" "${NOLOG_RED_UDP}" \
+			|| return 1
+}
+
+pass_local_ssh() {
+	local jailpath="${1}"
+	local jail="${jailpath##*/}"
+	local veth="${jail//_}"
+
+	local port
+	port="$(awk -F'=' '$1 == "SSH_PORT" {print $2}' "${jailpath}/ssh")"
+
+	if [[ -z "${port}" ]]; then
+		ewarn "No SSH_PORT for jail ${jail}, skipping local netfilter rules"
+		return 0
+	fi
+
+	# Inbound SSH - remove any extra quotes in $port
+	pass_local_fw "user1" "${veth}1" "${port//[\"\']/}" || return 1
+	# Outbound X forwarding
+	pass_local_fw "${veth}1" "user1" "6000:6100" || return 1
+}
+
+netfilter_local() {
+	export ILLEGAL_LOGLEV=info
+	export ILLEGAL_LOGLIM="10/minute"
+	set_policy || return 1
+	flush_all || return 1
+
+	set_local_rules || return 1
+
+	local jailpath
+	for jailpath in "/etc/jails/"*; do
+		[[ -e "${jailpath}/veth" ]] || continue
+		local jail="${jailpath##*/}"
+		pass_local_unreachable "${jail//_}1" || return 1
+		if [[ -e "${jailpath}/ssh" ]]; then
+			pass_local_ssh "${jailpath}" || return 1
+		fi
+	done
+}
+
+netfilter_do() {
+	local phase="${1}"
+	local arg="${2}"
+
+	if ! netfilter_${phase} ${arg}; then
+		ewarn "Netfilter configuration failed at phase ${phase} ${arg}"
+		errormsg_add "erreur netfilter durant la phase ${phase} ${arg}"
+		return 1
+	fi
+}
+
+netfilter_do_start() {
+	netfilter_do local || return 1
+	netfilter_do init || return 1
+	netfilter_do admin || return 1
+	netfilter_do peers || return 1
+	netfilter_do nolog || return 1
+
+	if ! set_final_rules; then
+		ewarn "Netfilter configuration failed while setting up final rules"
+		errormsg_add "erreur netfilter durant la finalisation des règles"
+		return 1
+	fi
+}
+
+netfilter_start() {
+	if [[ -n "${NET_NO_INTERFACE}" ]]; then
+		ebegin "No network card, loading local rules only"
+		netfilter_local
+		local ret=$? 
+		eend $ret "Failed to load local rules"
+		return $ret
+	fi
+
+	if [[ -e "${NONETWORK_MARK}" ]] ;then
+		ebegin "Failsafe mode detected, loading failsafe netfilter rules"
+		netfilter_local
+		local ret=$? 
+		eend $ret "Failed to load failsafe rules"
+		return $ret
+	fi
+
+	if ! netfilter_get_conf; then
+		errormsg_add "erreur dans la configuration du pare-feu"
+		ebegin "Errors in the networking config. Loading local rules only"
+		netfilter_local
+		eend $?
+		return 1
+	fi
+
+	ebegin "Loading netfilter policies"
+	if ! netfilter_do_start; then
+		unset PASS_ARGS
+		eend 1 "Failed to load netfilter policies, reloading local rules"
+		errormsg_add "erreur dans le chargement des règles de pare-feu"
+		if ! netfilter_local ; then
+			ewarn "Failed to load failsafe rules"
+		fi
+		return 1
+	else
+		unset PASS_ARGS
+		eend 0
+	fi
+}
+
+# N.B. : no stop() - we leave rules in place until reboot or new rules are loaded
+
+netfilter_status() {
+	print_status
+}

@@ -1,0 +1,6 @@
+ILLEGAL_LOGLEV=info
+ILLEGAL_LOGLIM=10/minute
+
+# Drop without logging
+NOLOG_BLACK_TCP=80
+NOLOG_BLACK_UDP=-

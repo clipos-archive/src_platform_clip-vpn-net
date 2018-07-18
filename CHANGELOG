@@ -1,0 +1,1131 @@
+# CLIP ChangeLog for app-clip/clip-generic-net
+
+*clip-generic-net-3.2.2 (14 Nov 2016)
+
+  14 Nov 2016; Tony Cheneau <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.2.2.ebuild, -clip-generic-net-3.2.1.ebuild:
+  Add new option for the IPsec configuration (netconf.d/<profile>/ipsec):
+  <GWNAME>_REDUNDANCY=rr (or "linear").
+  The Round-Robin behavior (new) shuffle the list of gateways in the
+  configuration file. This distributes the load among gateways.
+
+*clip-generic-net-3.2.1 (18 Oct 2016)
+
+  18 Oct 2016; Alain Ozanne <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.2.1.ebuild, -clip-generic-net-3.2.0-r5.ebuild:
+  Added dependency on jail_init virtual service provided by init_cgroups.
+
+*clip-generic-net-3.2.0-r5 (10 Nov 2015)
+
+  10 Nov 2015; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.2.0-r5.ebuild, -clip-generic-net-3.2.0-r4.ebuild:
+  Bump clip-vpn-net to 1.1.5 - use days instead of years in (ike)lifetime
+
+*clip-generic-net-3.2.0-r3 (11 Sep 2015)
+
+  11 Sep 2015; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.2.0-r3.ebuild, -clip-generic-net-3.2.0-r2.ebuild:
+  Bump clip-vpn-net to 1.1.3 - extend keylife and ikelifetime.
+
+*clip-generic-net-3.2.0 (27 May 2015)
+
+  27 May 2015; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.2.0.ebuild, -clip-generic-net-3.1.18-r1.ebuild:
+  Add generic netfilter handling for jail services (w/ and w/o vpn).
+  The /etc/jails/<jail_name>/netfilter file can set {RED,BLACK}_IN_TCP=<port> to
+  listen on the black or red interface. The jail must have a veth and it's IP in
+  /etc/conf.d/jail-net in the form of <JAIL_NAME>_LOCAL_ADDR=<ip> according to
+  it's name. The jail's context is used to mark outgoing packets to bypass IPsec
+  restrictions and be send in cleartext.
+
+*clip-generic-net-3.1.18-r1 (22 May 2015)
+
+  22 May 2015; ANSSI <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.18-r1.ebuild, -clip-generic-net-3.1.18.ebuild:
+  Merge clip-vpn-net during build if clip-vpn flag is used, to override files
+  in the vpn flavor.
+
+*clip-generic-net-3.1.18 (17 Sep 2014)
+
+  17 Sep 2014; Hugo Chargois <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.18.ebuild, -clip-generic-net-3.1.17.ebuild:
+  wirelessscan.pl: call external commands with absolute path due to secure
+  execution mode (AT_SECURE=1).
+
+*clip-generic-net-3.1.17 (11 Sep 2014)
+
+  11 Sep 2014; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.17.ebuild, -clip-generic-net-3.1.16.ebuild:
+  wirelessscan.pl: redirect stderr to /dev/null when calling external commands.
+
+*clip-generic-net-3.1.16 (28 Jul 2014)
+
+  28 Jul 2014; Hugo Chargois <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.16.ebuild, -clip-generic-net-3.1.15.ebuild:
+  Fix interfaces not stopping properly depending on the ADMIN interface.
+
+*clip-generic-net-3.1.15 (28 Jul 2014)
+
+  28 Jul 2014; Tony Cheneau <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.15.ebuild, -clip-generic-net-3.1.14-r1.ebuild:
+  Store additional inforrmation in /usr/local/var/net_status (add default
+  gateway IP address and connection status for all IPsec connections).
+
+*clip-generic-net-3.1.14-r1 (18 Jul 2014)
+
+  18 Jul 2014; Hugo Chargois <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.14-r1.ebuild, -clip-generic-net-3.1.14.ebuild:
+  Add /etc/admin/ike2/crl directory, where the admin can place CRLs.
+
+*clip-generic-net-3.1.14 (18 Jul 2014)
+
+  18 Jul 2014; Tony Cheneau <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.14.ebuild, -clip-generic-net-3.1.13.ebuild:
+  Add support for a new XXX_ESP_CCSD variable in the network profile. When
+  set to true, the strongswan configuration is build so that the corresponding
+  ESP tunnel uses CCSD.
+
+*clip-generic-net-3.1.13 (16 Jun 2014)
+
+  16 Jun 2014; Tony Cheneau <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.13.ebuild, -clip-generic-net-3.1.12.ebuild:
+  Fix variable naming so that the gateway address is printed correctly.
+
+*clip-generic-net-3.1.12 (19 May 2014)
+
+  19 May 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.12.ebuild, -clip-generic-net-3.1.11-r1.ebuild:
+  Fix path for newer wpa_supplicant releases (should also work with older
+  releases) + add nl80211 driver to wpa_supplicant command line.
+
+*clip-generic-net-3.1.11-r1 (15 May 2014)
+
+  15 May 2014; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.11-r1.ebuild, -clip-generic-net-3.1.11.ebuild:
+  Stop backing up CCSD private keys and passwords, clip-install-clip will handle
+  them.
+
+*clip-generic-net-3.1.11 (24 Apr 2014)
+
+  24 Apr 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.11.ebuild, -clip-generic-net-3.1.10.ebuild:
+  Fix pass_local_unreachable calls for veth interfaces when extra
+  jails are present.
+
+*clip-generic-net-3.1.10 (26 Mar 2014)
+
+  26 Mar 2014; Tony Cheneau <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.10.ebuild, -clip-generic-net-3.1.9.ebuild:
+  Fix a bug where wireless interface would not go down properly.
+  Because of the failure, wpa_supplicant is left running and prevents the
+  wireless interface to go up again.
+
+*clip-generic-net-3.1.9 (20 Mar 2014)
+
+  20 Mar 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.9.ebuild, -clip-generic-net-3.1.8.ebuild:
+  Do not error out in ip_get_conf if no ROUTE_EXTRA is defined.
+
+*clip-generic-net-3.1.8 (19 Mar 2014)
+
+  19 Mar 2014; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.8.ebuild, -clip-generic-net-3.1.7.ebuild:
+  Fix ip_start: call ip_get_conf before ip_do_start so MTU and ROUTE_EXTRA
+  settings are correctly handled.
+
+*clip-generic-net-3.1.7 (10 Mar 2014)
+
+  10 Mar 2014; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.7.ebuild, -clip-generic-net-3.1.6.ebuild:
+  Ajout support pour des IPs virtuelles au niveau bas.
+
+*clip-generic-net-3.1.6 (05 Mar 2014)
+
+  05 Mar 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.6.ebuild, -clip-generic-net-3.1.5.ebuild:
+  Fix pass_local_ssh : '_' characters must be removed from 
+  veth names, as pointed out by ASTRIUM.
+  Some more code cleanup.
+
+*clip-generic-net-3.1.5 (10 Jan 2014)
+
+  10 Jan 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.5.ebuild, -clip-generic-net-3.1.4.ebuild:
+  Code cleanup.
+
+*clip-generic-net-3.1.4 (06 Jan 2014)
+
+  06 Jan 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.4.ebuild, -clip-generic-net-3.1.3.ebuild:
+  Code cleanup, fix local loop firewall rules in netfilter 
+  (and not only in netlocal).
+
+*clip-generic-net-3.1.3 (02 Jan 2014)
+
+  02 Jan 2014; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.3.ebuild, -clip-generic-net-3.1.2.ebuild:
+  Make local loop firewall rules configurable through 
+  /etc/jails/*/veth and /etc/jail/*/ssh.
+
+*clip-generic-net-3.1.2 (02 Jan 2014)
+
+  02 Jan 2014; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.2.ebuild, -clip-generic-net-3.1.1.ebuild:
+  Fix UMTS setups by bringing back umts_start_extra() stub function.
+
+*clip-generic-net-3.1.1 (30 Dec 2013)
+
+  30 Dec 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.1.ebuild, -clip-generic-net-3.1.0-r1.ebuild:
+  Use UTF-8 to parse and generate wireless/umts config files, to 
+  better support non-ascii ESSIDs, etc.
+
+*clip-generic-net-3.1.0-r1 (30 Dec 2013)
+
+  30 Dec 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.0-r1.ebuild, -clip-generic-net-3.1.0.ebuild:
+  Force rebuild to add openrc dependency.
+
+*clip-generic-net-3.1.0 (17 Dec 2013)
+
+  17 Dec 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.1.0.ebuild, -clip-generic-net-3.0.3.ebuild:
+  Switch to new netfilter.sub interface in clip-sub-1.9 - use 
+  associative arrays for parameter passing. Do not error out
+  if some netfilter port definition are not present in the config
+  file.
+
+*clip-generic-net-3.0.3 (13 Dec 2013)
+
+  13 Dec 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.0.3.ebuild, -clip-generic-net-3.0.2.ebuild:
+  Move /etc/conf.d/netconf file to clip-net/clip-gtw-net, remove
+  clip-hermes specific changes to it.
+
+*clip-generic-net-3.0.2 (08 Nov 2013)
+
+  08 Nov 2013; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.0.2.ebuild, -clip-generic-net-3.0.1.ebuild:
+  Import NET_IMPORT_FILTER/NET_MULTI_FILTER from clip-gtw-net (and use
+  _IMPORT_FILTER_{ADDR,MASK})
+
+*clip-generic-net-3.0.1 (06 Nov 2013)
+
+  06 Nov 2013; Hugo Chargois <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.0.1.ebuild, -clip-generic-net-3.0.0.ebuild:
+  Fix typos.
+
+*clip-generic-net-3.0.0 (21 Oct 2013)
+
+  21 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-3.0.0.ebuild, -clip-generic-net-2.4.19.ebuild:
+  Switch to a modular setup, with only netlocal / netconf / networking 
+  and ipsec scripts, and the rest of it turned into modules in /lib/rc/net.
+
+*clip-generic-net-2.4.19 (18 Oct 2013)
+
+  18 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.19.ebuild, -clip-generic-net-2.4.18.ebuild:
+  Fix typo and leftover init.d reference, again.
+
+*clip-generic-net-2.4.18 (18 Oct 2013)
+
+  18 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.18.ebuild, -clip-generic-net-2.4.17.ebuild:
+  Fix leftover init.d references.
+
+*clip-generic-net-2.4.17 (18 Oct 2013)
+
+  18 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.17.ebuild, -clip-generic-net-2.4.16.ebuild:
+  Move common and extra files used by init scripts out of init.d and
+  into /$libdir/rc/net.
+
+*clip-generic-net-2.4.16 (14 Oct 2013)
+
+  14 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.16.ebuild, -clip-generic-net-2.4.15.ebuild:
+  Fix typos.
+
+*clip-generic-net-2.4.15 (14 Oct 2013)
+
+  14 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.15.ebuild, -clip-generic-net-2.4.14.ebuild:
+  Better compatibility of init scripts with openrc.
+  Perform duplicate IP and route access checks in the background
+  to avoid blocking the boot sequence.
+
+*clip-generic-net-2.4.14 (11 Oct 2013)
+
+  11 Oct 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.14.ebuild, -clip-generic-net-2.4.13.ebuild:
+  Fixes for openrc - rename config() method to get_conf() to avoid
+  it being called during cache update.
+  Also add netlocal to runlevel default, so that it won't be stopped
+  when going from nonetwork to default.
+
+*clip-generic-net-2.4.13 (12 Jun 2013)
+
+  12 Jun 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.13.ebuild, -clip-generic-net-2.4.12.ebuild:
+  No change bump to undo quick and dirty fixes applied in 2.4.12.1
+  in the 4.3.6 branch.
+
+*clip-generic-net-2.4.12 (03 May 2013)
+
+  03 May 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.12.ebuild, -clip-generic-net-2.4.11.ebuild:
+  Fix permissions on wired_mac files.
+
+*clip-generic-net-2.4.11 (25 Apr 2013)
+
+  25 Apr 2013; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.11.ebuild, -clip-generic-net-2.4.10.ebuild:
+  Simplify wireless interface detection.
+
+*clip-generic-net-2.4.10 (23 Apr 2013)
+
+  23 Apr 2013; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.10.ebuild, -clip-generic-net-2.4.9.ebuild:
+	Fix wireless interface detection on some platforms.
+
+*clip-generic-net-2.4.9 (10 Apr 2013)
+
+  10 Apr 2013; Hugo Chargois <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.9.ebuild, -clip-generic-net-2.4.8-r1.ebuild:
+  Add support for ipsec config file
+
+*clip-generic-net-2.4.8-r1 (13 Mar 2013)
+
+  13 Mar 2013; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.8-r1.ebuild, -clip-generic-net-2.4.8.ebuild:
+  Fix dependency for deb package.
+
+*clip-generic-net-2.4.8 (12 Mar 2013)
+
+  12 Mar 2013; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.8.ebuild, -clip-generic-net-2.4.7-r1.ebuild:
+  Explicitly set file mode for wifiscan.txt .
+
+*clip-generic-net-2.4.7-r1 (11 Mar 2013)
+
+  11 Mar 2013; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.7-r1.ebuild, -clip-generic-net-2.4.7.ebuild:
+  Use hwids.
+
+*clip-generic-net-2.4.7 (05 Mar 2013)
+
+  05 Mar 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.7.ebuild, -clip-generic-net-2.4.6.ebuild:
+  Use new netfilter API from clip-sub >= 1.7.11.
+
+*clip-generic-net-2.4.5 (22 Jan 2013)
+
+  22 Jan 2013; ANSSI <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.5.ebuild, -clip-generic-net-2.4.4.ebuild:
+  Fix certificates directory problem support with WPA EAP-TLS.
+
+*clip-generic-net-2.4.4 (11 Jan 2013)
+
+  11 Jan 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.4.ebuild, -clip-generic-net-2.4.3.ebuild:
+  Use new netfilter API from clip-sub >= 1.7.9.
+
+*clip-generic-net-2.4.3 (07 Jan 2013)
+
+  07 Jan 2013; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.3.ebuild, -clip-generic-net-2.4.2.ebuild:
+  Add patch by Florent Chabaud from #339 on clip-test, to fix 
+  status-monitor race conditions.
+
+*clip-generic-net-2.4.2 (22 Nov 2012)
+
+  22 Nov 2012; Yves-Alexis Perez <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.2.ebuild, -clip-generic-net-2.4.1.ebuild:
+  Add support for Vodafone K4511 Huawei wwan modules.
+
+*clip-generic-net-2.4.1 (06 Nov 2012)
+
+  06 Nov 2012; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.1.ebuild, -clip-generic-net-2.4.0.ebuild:
+  Set network interface files whenever the network is used or not.
+  Copy first ethernet MAC in the update jail.
+
+*clip-generic-net-2.4.0 (26 Apr 2012)
+
+  26 Apr 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.4.0.ebuild, -clip-generic-net-2.3.3.ebuild:
+  Support virtual IPs for UPDATE, ADMIN, AUDIT and RMH jails.
+  Note that we now use separate tunnels for ADMIN and AUDIT.
+  Support configs with no UPDATE_GW.
+
+*clip-generic-net-2.3.3 (25 Apr 2012)
+
+  25 Apr 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.3.3.ebuild, -clip-generic-net-2.3.2.ebuild:
+  Fix filtering of icmp error messages.
+
+*clip-generic-net-2.3.2 (24 Apr 2012)
+
+  24 Apr 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.3.2.ebuild, -clip-generic-net-2.3.1.ebuild:
+  Do not use labels when adding addresses to ethX and lo.
+
+*clip-generic-net-2.3.1 (17 Apr 2012)
+
+  17 Apr 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.3.1.ebuild, -clip-generic-net-2.3.0-r1.ebuild:
+  Fix UMTS IPsec. Fix support for PIN codes over 4 chars long.
+  Fix default route check.
+
+*clip-generic-net-2.3.0-r1 (04 Apr 2012)
+
+  04 Apr 2012; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.3.0-r1.ebuild, -clip-generic-net-2.3.0.ebuild,
+  +files/oui.txt:
+  Move and update the OUI to 2012.04.04
+
+*clip-generic-net-2.3.0 (14 Mar 2012)
+
+  14 Mar 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.3.0.ebuild, -clip-generic-net-2.2.1-r1.ebuild:
+  Switch admin, audit, update and user jails to dedicated pid and
+  net namespaces, and a veth pair.
+
+*clip-generic-net-2.2.1-r1 (14 Feb 2012)
+
+  14 Feb 2012; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.2.1-r1.ebuild, -clip-generic-net-2.2.1.ebuild:
+  Fix Hermes non-client support.
+  Remove ccsd.{pvr,pwd} from conffiles.list if no clip-ccsd.
+  Fix IPsec dependencies.
+
+*clip-generic-net-2.2.1 (31 Jan 2012)
+
+  31 Jan 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.2.1.ebuild, -clip-generic-net-2.2.0.ebuild:
+  Fix ADDR_MULTI_FILTER and ROUTE_MULTI_FILTER.
+
+*clip-generic-net-2.2.0 (18 Jan 2012)
+
+  18 Jan 2012; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.2.0.ebuild, -clip-generic-net-2.1.9.ebuild:
+  Support for multiple IPsec gateways.
+
+*clip-generic-net-2.1.9 (27 Dec 2011)
+
+  27 Dec 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.9.ebuild, -clip-generic-net-2.1.8.ebuild:
+  Switch to prompt.sub to prompt the user on first netconf activation.
+
+*clip-generic-net-2.1.8 (05 Dec 2011)
+
+  05 Dec 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.8.ebuild, -clip-generic-net-2.1.7.ebuild:
+  Support multiple /etc/conf.d/net alternatives through NET_BASE_TYPE.
+
+*clip-generic-net-2.1.7 (07 Nov 2011)
+
+  07 Nov 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.7.ebuild, -clip-generic-net-2.1.6.ebuild:
+  Support ports 1:9 in the netfilter config...
+
+*clip-generic-net-2.1.5 (12 Aug 2011)
+
+  12 Aug 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.5.ebuild, -clip-generic-net-2.1.4.ebuild:
+  Fixes for umts_config: 64bit build, OWANDATA notification. Add 
+  proper error message for when the APN call fails (which might 
+  indicate that either the APN or the user ID/password are incorrect).
+  Support resuming a 3G connection when comming out from suspend
+  to RAM.
+
+*clip-generic-net-2.1.4 (28 Jul 2011)
+
+  28 Jul 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.4.ebuild, -clip-generic-net-2.1.3.ebuild:
+  Fix nonetwork mode (error in netfilter configuration import).
+
+*clip-generic-net-2.1.3 (18 Jul 2011)
+
+  18 Jul 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.3.ebuild, -clip-generic-net-2.1.2.ebuild:
+  Fix default route checks for cases when the default route is
+  not statically defined (i.e. DHCP/UMTS).
+
+*clip-generic-net-2.1.2 (08 Jul 2011)
+
+  08 Jul 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.2.ebuild, -clip-generic-net-2.1.1.ebuild:
+  Support a start_extra hook in ipsec init script.
+  Add support for ipsec led in netmonitor.sh.
+
+*clip-generic-net-2.1.1 (01 Jul 2011)
+
+  01 Jul 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.1.ebuild, -clip-generic-net-2.1.0.ebuild:
+  Fix wireless scan for RTL8192SE.
+
+*clip-generic-net-2.1.0 (10 May 2011)
+
+  10 May 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.1.0.ebuild, -clip-generic-net-2.0.24.ebuild:
+  Add support for a secondary admin interface, in cleartext.
+
+*clip-generic-net-2.0.24 (06 Apr 2011)
+
+  06 Apr 2011; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.24.ebuild, -clip-generic-net-2.0.23.ebuild:
+  list-net-profile.sh - move netlist menu handling to clip-menu-xdg, split up
+  init and update commands.
+
+*clip-generic-net-2.0.23 (02 Mar 2011)
+
+  02 Mar 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.23.ebuild, -clip-generic-net-2.0.22.ebuild:
+  Add list-net-profiles.sh sbin script to replace var-update.sh - 
+  clip-generic-net can't depend on a specific version of clip-config.
+
+*clip-generic-net-2.0.22 (23 Feb 2011)
+
+  23 Feb 2011; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.22.ebuild, -clip-generic-net-2.0.21.ebuild:
+  Use var-update.sh in network-common:netlist_set (need clip-config).
+
+*clip-generic-net-2.0.21 (04 Feb 2011)
+
+  04 Feb 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.21.ebuild, -clip-generic-net-2.0.20.ebuild:
+  Properly remove wired_mac and has_wifi flags when no matching interface
+  is found.
+
+*clip-generic-net-2.0.20 (12 Jan 2011)
+
+  12 Jan 2011; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.20.ebuild, -clip-generic-net-2.0.19.ebuild:
+  Shorten timeouts for umts config. Support SIM PINs of up to 8 chars.
+
+*clip-generic-net-2.0.19 (25 Nov 2010)
+
+  25 Nov 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.19.ebuild, -clip-generic-net-2.0.18.ebuild:
+  Use wpa_supplicant for all wireless connections, including wep and
+  plaintext. Remove unreliable iwconfig code.
+
+*clip-generic-net-2.0.18 (18 Nov 2010)
+
+  18 Nov 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.18.ebuild, -clip-generic-net-2.0.17.ebuild:
+  Turn check_route failures into simple warnings for now.
+
+*clip-generic-net-2.0.17 (10 Nov 2010)
+
+  10 Nov 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.17.ebuild, -clip-generic-net-2.0.16.ebuild:
+  checkip.sh - set source IP when available.
+
+*clip-generic-net-2.0.16 (09 Nov 2010)
+
+  09 Nov 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.16.ebuild, -clip-generic-net-2.0.15.ebuild:
+  checkip.sh - fix parsing for multiple responses.
+
+*clip-generic-net-2.0.15 (08 Nov 2010)
+
+  08 Nov 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.15.ebuild, -clip-generic-net-2.0.14.ebuild:
+  Fix unescaped sh args in wpaconfgen.pl. Remove leftover call
+  to stop_monitor in networking.
+
+*clip-generic-net-2.0.14 (03 Nov 2010)
+
+  03 Nov 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.14.ebuild, -clip-generic-net-2.0.13.ebuild:
+  Fix off-by-one in IF_NUMBER (netconf script).
+
+*clip-generic-net-2.0.13 (20 Oct 2010)
+
+  20 Oct 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.13.ebuild, -clip-generic-net-2.0.12.ebuild:
+  Add default route check.
+
+*clip-generic-net-2.0.12 (07 Oct 2010)
+
+  07 Oct 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.12.ebuild, -clip-generic-net-2.0.11.ebuild:
+  Fix ADMIN_NOIPSEC typo in netfilter.
+
+*clip-generic-net-2.0.11 (04 Oct 2010)
+
+  01 Oct 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.11.ebuild, -clip-generic-net-2.0.10.ebuild:
+  Start charon in a vserver jail.
+  Fix umts config in case of incorrect PIN code.
+  Add user-friendly error messages.
+
+*clip-generic-net-2.0.10 (28 Sep 2010)
+
+  28 Sep 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.10.ebuild, -clip-generic-net-2.0.9.ebuild:
+  Do not create useless DNAT rules for remote admin.
+
+*clip-generic-net-2.0.9 (24 Sep 2010)
+
+  24 Sep 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.9.ebuild, -clip-generic-net-2.0.8.ebuild:
+  Use a more practical way of setting up remote admin, similar to
+  that used for update - if ADMIN_NOIPSEC is defined in /etc/conf.d/net,
+  ADMIN/AUDIT are authorized to go out in cleartext. Otherwise, if
+  ADMIN_GW can be imported from the net profile, set up remote ADMIN.
+  Fix netfilter config for remote admin.
+
+*clip-generic-net-2.0.8 (08 Sep 2010)
+
+  08 Sep 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.8.ebuild, -clip-generic-net-2.0.7.ebuild:
+  Set /usr/local/var/net_choice with the current network profile.
+
+*clip-generic-net-2.0.7 (06 Sep 2010)
+
+  06 Sep 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.7.ebuild, -clip-generic-net-2.0.6-r1.ebuild:
+  Add options to prompt user or to use the default configuration at boot
+  (BOOT_MENU and BOOT_LASTUSED in /etc/conf.d/netconf).
+
+*clip-generic-net-2.0.6-r1 (06 Sep 2010)
+
+  06 Sep 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.6-r1.ebuild, -clip-generic-net-2.0.6.ebuild,
+  files/postinst.netconf:
+  Move TLS_* variables (stunnel) to static net conf.
+
+*clip-generic-net-2.0.6 (03 Sep 2010)
+
+  03 Sep 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.6.ebuild, -clip-generic-net-2.0.5.ebuild:
+  Fix conf validation when USER_ADDR, etc. are no longer in 
+  the profile's net file.
+
+*clip-generic-net-2.0.5 (02 Sep 2010)
+
+  02 Sep 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.5.ebuild, -clip-generic-net-2.0.4.ebuild:
+  network-common, netconf: add netlist stuff.
+
+*clip-generic-net-2.0.4 (02 Sep 2010)
+
+  02 Sep 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.4.ebuild, -clip-generic-net-2.0.3.ebuild:
+  Fix has_if_ethX generation when using a nonetwork configuration.
+
+*clip-generic-net-2.0.3 (27 Aug 2010)
+
+  27 Aug 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.3.ebuild, -clip-generic-net-2.0.2.ebuild:
+  Bump to force rebuild - 2.0.2 built with broken distfile.
+
+*clip-generic-net-2.0.2 (25 Aug 2010)
+
+  17 Aug 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.2.ebuild, -clip-generic-net-2.0.1.ebuild:
+  netmonitor.sh: fix floating bit rate.
+  network-common: add misc.sub dependency.
+
+*clip-generic-net-2.0.1 (12 Aug 2010)
+
+  12 Aug 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.1.ebuild, -clip-generic-net-2.0.0.ebuild:
+  Cleanup netmonitor.sh and related calls.
+
+*clip-generic-net-2.0.0 (03 Aug 2010)
+
+  03 Aug 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-2.0.0.ebuild, -clip-generic-net-1.4.41.ebuild:
+  Add netlocal init script, always keep 'lo' active.
+
+*clip-generic-net-1.4.41 (02 Aug 2010)
+
+  02 Aug 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.41.ebuild, -clip-generic-net-1.4.40.ebuild:
+  UMTS fixes : 
+   - support iConn 505
+   - use netmonitor.sh for those connections as well
+   - fix ipsec monitoring
+
+*clip-generic-net-1.4.40 (29 Jul 2010)
+
+  29 Jul 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.40.ebuild, -clip-generic-net-1.4.39.ebuild:
+  Oops, forgot wpa-common in Makefile.
+
+*clip-generic-net-1.4.39 (28 Jul 2010)
+
+  28 Jul 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.39.ebuild, -clip-generic-net-1.4.38.ebuild:
+  Initial support for Radius authentication on wired NICs.
+
+*clip-generic-net-1.4.38 (05 Jul 2010)
+
+  05 Jul 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.38.ebuild, -clip-generic-net-1.4.37.ebuild:
+  Support generic download locking mechanism (not UMTS-specific).
+
+*clip-generic-net-1.4.37 (29 Jun 2010)
+
+  29 Jun 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.37.ebuild, -clip-generic-net-1.4.36.ebuild:
+  Add networking error message details.
+
+*clip-generic-net-1.4.36 (28 Jun 2010)
+
+  28 Jun 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.36.ebuild, -clip-generic-net-1.4.35.ebuild:
+  And fix netmonitor.sh for new fail-safe mode.
+
+*clip-generic-net-1.4.35 (28 Jun 2010)
+
+  28 Jun 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.35.ebuild, -clip-generic-net-1.4.34-r1.ebuild:
+  Properly restore original interface name when umts / wireless scripts
+  fail to start up.
+
+*clip-generic-net-1.4.34-r1 (24 Jun 2010)
+
+  24 Jun 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.34-r1.ebuild, -clip-generic-net-1.4.34.ebuild:
+  Rbump to force rebuild with updated distfile (not commited).
+
+*clip-generic-net-1.4.34 (23 Jun 2010)
+
+  23 Jun 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.34.ebuild, -clip-generic-net-1.4.33.ebuild:
+  Fixes for WEP / non-encrypted wireless association.
+  Change failsafe mode to retain proper jail addresses.
+
+*clip-generic-net-1.4.33 (18 Jun 2010)
+
+  18 Jun 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.33.ebuild, -clip-generic-net-1.4.32.ebuild:
+  Check if the IP is already in use.
+
+*clip-generic-net-1.4.32 (17 Jun 2010)
+
+  17 Jun 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.32.ebuild, -clip-generic-net-1.4.31.ebuild:
+  Provide netservice.
+
+*clip-generic-net-1.4.30-r1 (01 Jun 2010)
+
+  01 Jun 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.31.ebuild, -clip-generic-net-1.4.30.ebuild:
+  Small fix to ipsec status (clip-rm compliant).
+
+*clip-generic-net-1.4.30 (31 May 2010)
+
+  31 May 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.30.ebuild, -clip-generic-net-1.4.29.ebuild:
+  Fix netfilter script when /var/run/nonetwork is already present.
+
+*clip-generic-net-1.4.29 (27 May 2010)
+
+  27 May 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.29.ebuild, -clip-generic-net-1.4.28.ebuild:
+  Fix umts update download lock creation (was deleted in networking 
+  init script for no reason).
+  Fix drop nolog statements - if no setting is defined, automatically
+  drop without logging all UDP packets received on eth0 with a broadcast
+  destination.
+
+*clip-generic-net-1.4.28 (25 May 2010)
+
+  25 May 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.28.ebuild, -clip-generic-net-1.4.27.ebuild:
+  Fix wireless scanning after failing to initialize a wireless profile.
+
+*clip-generic-net-1.4.27 (10 May 2010)
+
+  10 May 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.27.ebuild, -clip-generic-net-1.4.26.ebuild:
+  Small fixes to ipsec status.
+
+*clip-generic-net-1.4.26 (03 May 2010)
+
+  03 May 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.26.ebuild, -clip-generic-net-1.4.25.ebuild:
+  Add ipsec status to netmonitor and network-common.
+
+*clip-generic-net-1.4.25 (27 Apr 2010)
+
+  27 Apr 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.25.ebuild, -clip-generic-net-1.4.24.ebuild:
+  Support Ad-Hoc wireless networks.
+
+*clip-generic-net-1.4.24 (23 Apr 2010)
+
+  23 Apr 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.24.ebuild, -clip-generic-net-1.4.23.ebuild:
+  Support EXTRA_ROUTES in net config file.
+  UMTS fixes and optimizations.
+  Fix some label file initialisation bugs.
+
+*clip-generic-net-1.4.23 (18 Mar 2010)
+
+  18 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.23.ebuild, -clip-generic-net-1.4.22-r1.ebuild:
+  Correction for umts net_status level value.
+
+*clip-generic-net-1.4.22-r1 (18 Mar 2010)
+
+  18 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.22-r1.ebuild, -clip-generic-net-1.4.22.ebuild,
+  -files/ipsec-hermes.patch:
+  Remove stunnel dependency and clip-hermes use flag.
+
+*clip-generic-net-1.4.22 (18 Mar 2010)
+
+  18 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.22.ebuild, -clip-generic-net-1.4.21.ebuild:
+  Add the profile name to UMTS monitor.
+
+*clip-generic-net-1.4.21 (15 Mar 2010)
+
+  15 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.21.ebuild, -clip-generic-net-1.4.20.ebuild:
+  Improved network monitor. Add network profile name to status file.
+
+*clip-generic-net-1.4.20 (05 Mar 2010)
+
+  05 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.20.ebuild, -clip-generic-net-1.4.19-r1.ebuild:
+  Fix printf error in network-common.
+
+*clip-generic-net-1.4.19-r1 (04 Mar 2010)
+
+  04 Mar 2010; Mickaël Salaün <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.19-r1.ebuild, -clip-generic-net-1.4.19.ebuild,
+  +files/ipsec-hermes.patch:
+  Add stunnel dependency to init/ipsec for clip-hermes.
+
+*clip-generic-net-1.4.19 (15 Feb 2010)
+
+  15 Feb 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.19.ebuild, -clip-generic-net-1.4.18.ebuild:
+  Fix net_status initialization if dhcp fails on a wired profile at
+  boot.
+
+*clip-generic-net-1.4.18 (28 Jan 2010)
+
+  28 Jan 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.18.ebuild, -clip-generic-net-1.4.17.ebuild:
+  Create /var/run/has_if_ethX in ADMIN jail for each ethX interface
+  that has been activated.
+
+*clip-generic-net-1.4.17 (12 Jan 2010)
+
+  12 Jan 2010; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.17.ebuild, -clip-generic-net-1.4.16.ebuild:
+  Fix ethernet monitoring. Deactivate downloads when running an 
+  UMTS profile.
+
+*clip-generic-net-1.4.16 (29 Dec 2009)
+
+  29 Dec 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.16.ebuild, -clip-generic-net-1.4.15.ebuild:
+  Remove repeated calls to ifconfig in ethernet_monitor.sh, they
+  generate loads of CLSM warnings... 'ip link show' is the way
+  to go.
+
+*clip-generic-net-1.4.15 (22 Dec 2009)
+
+  22 Dec 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.15.ebuild, -clip-generic-net-1.4.14.ebuild:
+  Change MAC detection to write wireless and wired (first itf only)
+  in ADMIN's /var/run, to be latter picked up by clip-config.
+
+*clip-generic-net-1.4.14 (18 Dec 2009)
+
+  18 Dec 2009; Florent Chabaud <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.14.ebuild, -clip-generic-net-1.4.13.ebuild:
+  Bug fixes on network monitoring
+
+*clip-generic-net-1.4.13 (06 Nov 2009)
+
+  06 Nov 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.13.ebuild, -clip-generic-net-1.4.12.ebuild:
+  Try another fix for empty UMTS params.
+
+*clip-generic-net-1.4.12 (05 Nov 2009)
+
+  05 Nov 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.12.ebuild, -clip-generic-net-1.4.11.ebuild:
+  Fix management of empty UMTS identity/password.
+
+*clip-generic-net-1.4.11 (27 Oct 2009)
+
+  27 Oct 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.11.ebuild, -clip-generic-net-1.4.10.ebuild:
+  Fixes for UMTS + monitoring support.
+
+*clip-generic-net-1.4.10 (21 Oct 2009)
+
+  21 Oct 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.10.ebuild, -clip-generic-net-1.4.9.ebuild:
+  Initial (tentative) support for umts.
+
+*clip-generic-net-1.4.9 (07 Oct 2009)
+
+  07 Oct 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.9.ebuild, -clip-generic-net-1.4.8.ebuild:
+  Fix wirelessscan.pl for hidden essid.
+  Smallish cosmetic fix on wpaconfgen.pl.
+
+*clip-generic-net-1.4.8 (30 Sep 2009)
+
+  30 Sep 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.8.ebuild, -clip-generic-net-1.4.7.ebuild:
+  Properly detect hidden essid cells when scanning for wireless
+  cells.
+
+*clip-generic-net-1.4.7 (07 Sep 2009)
+
+  07 Sep 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.7.ebuild, -clip-generic-net-1.4.6.ebuild:
+  Add support for listing wireless networks.
+
+*clip-generic-net-1.4.6 (03 Aug 2009)
+
+  03 Aug 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.6.ebuild, -clip-generic-net-1.4.5.ebuild:
+  Allow ICMP error messages on local loop from core to jails.
+  Allow manually setting the MTU on ETH<i> interfaces.
+
+*clip-generic-net-1.4.5 (16 Jul 2009)
+
+  16 Jul 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.5.ebuild, -clip-generic-net-1.4.4.ebuild:
+  Add missing error detection in netfilter.
+
+*clip-generic-net-1.4.4 (15 Jul 2009)
+
+  15 Jul 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.4.ebuild, -clip-generic-net-1.4.3.ebuild:
+  Fix WPA with hidden ssids. Fix spaces in essid.
+
+*clip-generic-net-1.4.3 (08 Jul 2009)
+
+  08 Jul 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.3.ebuild, -clip-generic-net-1.4.2.ebuild:
+  Time-out on netconf selection.
+
+*clip-generic-net-1.4.2 (29 Jun 2009)
+
+  29 Jun 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.2.ebuild, -clip-generic-net-1.4.1-r1.ebuild:
+  wpaconfgen.pl - support 64 hex digits WPA PSKs (no hashing needed).
+
+*clip-generic-net-1.4.1-r1 (19 Jun 2009)
+
+  19 Jun 2009; Olivier Levillain <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.1-r1.ebuild, -clip-generic-net-1.4.1.ebuild:
+  Add a line in the wireless script to signal to the admin vserver
+  whether a wifi interface is present or not.
+
+*clip-generic-net-1.4.1 (18 Jun 2009)
+
+  18 Jun 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.1.ebuild, -clip-generic-net-1.4.0.ebuild:
+  Bump. Switch to 127.0.1.1 as first address for the ADMIN/AUDIT 
+  context. Remove old racoon2/racoon scripts, which are no longer
+  supported for real...
+
+*clip-generic-net-1.4.0 (12 Jun 2009)
+
+  12 Jun 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.4.0.ebuild, -clip-generic-net-1.3.1.ebuild:
+  Switch fully to netconf profiles, do not use config files from
+  /etc/admin/conf.d directly. Add initial WPA wireless support.
+
+*clip-generic-net-1.3.1 (09 Jun 2009)
+
+  09 Jun 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.3.1.ebuild, -clip-generic-net-1.3.0.ebuild:
+  Support networking profiles defined in /etc/admin/conf.d/netconf.
+  Initial support for a configurable remote ADMIN gateway.
+  Support undefined gateways for UPDATE / RM_H.
+  Broader range of local loop ports for X11 Forwarding in ADMIN / AUDIT.
+
+*clip-generic-net-1.3.0 (02 Jun 2009)
+
+  02 Jun 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.3.0.ebuild, -clip-generic-net-1.2.2.ebuild:
+  Add initial wireless support.
+
+*clip-generic-net-1.2.2 (23 Apr 2009)
+
+  23 Apr 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.2.2.ebuild, -clip-generic-net-1.2.1.ebuild:
+  Allow local loop connexions to port 6010 TCP on USER lo, to 
+  support X11 Forwarding between USER and ADMIN / AUDIT.
+
+*clip-generic-net-1.2.1 (14 Jan 2009)
+
+  14 Jan 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.2.1.ebuild, -clip-generic-net-1.2.0.ebuild:
+  Fix typo that forced static netmask import on dhcp interfaces.
+
+*clip-generic-net-1.2.0 (12 Jan 2009)
+
+  12 Jan 2009; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.2.0.ebuild, -clip-generic-net-1.1.2.ebuild:
+  Add support for strongswan.
+
+*clip-generic-net-1.1.2 (24 Nov 2008)
+
+  24 Nov 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.1.2.ebuild, -clip-generic-net-1.1.1.ebuild:
+  Use new pass_ipsec_if/all() functions, instead of the old pass_esp_if/all()
+  ones. Filter out ISAKMP ports (500,4500) from ETHx_UDP_IN/OUT specs, since
+  those flows are now managed by pass_ipsec_if(). Supply tunnel endpoint 
+  addresses to force_ipsec_if() calls.
+
+*clip-generic-net-1.1.1 (03 Nov 2008)
+
+  03 Nov 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.1.1.ebuild, -clip-generic-net-1.1.0.ebuild:
+  Properly insert passing rule in netfilter loopback chain, when 
+  switching to fail-safe from networking or spmd.
+
+*clip-generic-net-1.1.0 (16 Oct 2008)
+
+  16 Oct 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.1.0.ebuild, -clip-generic-net-1.0.13.ebuild:
+  Bump to 'ng' dhcp-aware version.
+
+*clip-generic-net-1.0.13 (13 Oct 2008)
+
+  13 Oct 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.13.ebuild, -clip-generic-net-1.0.12.ebuild:
+  Import NOLOG_* variables, if defined, that are supported by newest
+  clip-sub.
+
+*clip-generic-net-1.0.12 (16 Sep 2008)
+
+  16 Sep 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.12.ebuild, -clip-generic-net-1.0.11-r1.ebuild:
+  Fix netfilter multiport import regexp to support '1024:65535'-like 
+  declarations.
+
+*clip-generic-net-1.0.11-r1 (25 Aug 2008)
+
+  25 Aug 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.11-r1.ebuild, -clip-generic-net-1.0.11.ebuild:
+  Fix ccsd.{pvr,pwd} paths in conffiles.list, manage them through the
+  new CONF_FILES_VIRTUAL variable.
+
+*clip-generic-net-1.0.11 (11 Aug 2008)
+
+  11 Aug 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.11.ebuild, -clip-generic-net-1.0.10.ebuild:
+  Use a temporary file as SPMD PSK, remove it once iked is started.
+
+*clip-generic-net-1.0.10 (03 Jul 2008)
+
+  03 Jul 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.10.ebuild, -clip-generic-net-1.0.9.ebuild:
+  Miscellaneous fixes.
+  All scripts: source *.sub and static config files immediately and 
+  not only in config. Bail out immediately if /var/run/nonetwork is
+  found. Signal fail-safe mode with ewarn rather than ebegin. Do some 
+  more fail-safe related resetting in later scripts.
+  netfilter: switch to clip-sub-1.3.11 interface (pass_esp_if()).
+  Reorder init_extra() and set_icmp_rules_if() calls.
+  Fix dnat_if() interface name for USER_IN, and snat_cleartext_if()
+  interface name for USER_OUT.
+  iked: allow NATT_IF to be supplied by the secondary script, keep 
+  the default of listening on eth0.
+  ipsec_default.conf: deny all non AUDIT/ADMIN connexions.
+  spmd: kill spmd with killall, as spmd -k will not work now that we've
+  dropped spmd's veriexec caps.
+
+*clip-generic-net-1.0.9 (01 Jul 2008)
+
+  01 Jul 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.9.ebuild, -clip-generic-net-1.0.8.ebuild:
+  Fix switch to failsafe mode from networking stage : reset 
+  ipsec SPs.
+
+*clip-generic-net-1.0.8 (13 Jun 2008)
+
+  13 Jun 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.8.ebuild, -clip-generic-net-1.0.7.ebuild:
+  Fix leftover deprecated calls.
+
+*clip-generic-net-1.0.7 (03 Jun 2008)
+
+  10 Jun 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.7.ebuild, -clip-generic-net-1.0.6-r1.ebuild:
+  Add failsafe mode when config imports fail. Add checks for USER/UPDATE
+  intersection.
+
+*clip-generic-net-1.0.6-r1 (28 Apr 2008)
+
+  28 Apr 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.6-r1.ebuild, -clip-generic-net-1.0.6.ebuild:
+  Manually add / remove ccsd.{pvr,pwd} to conffiles.list in postinst /
+  prerm, even though we do not install them ourselves, so they get copied
+  on a core update.
+
+*clip-generic-net-1.0.6 (24 Apr 2008)
+
+  24 Apr 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.6.ebuild, -clip-generic-net-1.0.5.ebuild:
+  Do not flush netfilter on /etc/init.d/netfilter stop, this won't
+  work anyway and creates an ugly warning message on the console.
+
+*clip-generic-net-1.0.5 (03 Apr 2008)
+
+  03 Apr 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.5.ebuild, -clip-generic-net-1.0.4.ebuild:
+  Fix pass_esp netfilter rule creation : do not create such a rule
+  on the update interface when UPDATE_NO_IPSEC is defined. Note that
+  in that case, the pass_esp rule needs to be created explicitly on
+  the external (non update) interface.
+  Add /etc/admin/ike2/cert/lock and /etc/ike2/cert/lock files, to be used 
+  by racoon2 and install_ccsd as lock files. Remove old ccsd certs update 
+  mechanism.
+
+*clip-generic-net-1.0.4 (01 Apr 2008)
+
+  01 Apr 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.4.ebuild, -clip-generic-net-1.0.3.ebuild:
+  Add support for removing ike2 cert files from ADMINclip.
+
+*clip-generic-net-1.0.3 (31 Mar 2008)
+
+  31 Mar 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.3.ebuild, -clip-generic-net-1.0.2.ebuild:
+  Add support for CCSD auth files for IKED, in /etc/ike2/cert (immutable)
+  and /etc/admin/ike2/cert (copied on boot from /etc/admin/admin_ike2_cert).
+
+*clip-generic-net-1.0.2 (21 Mar 2008)
+
+  21 Mar 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.2.ebuild, -clip-generic-net-1.0.1.ebuild:
+  Bump. Bugfix for init.d/netfilter when USER_IN/USER_OUT are
+  set.
+
+*clip-generic-net-1.0.1 (13 Feb 2008)
+
+  13 Feb 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.1.ebuild, -clip-generic-net-1.0.ebuild:
+  Bump. Support for USER or UPDATE on another interface than eth0.
+  Support for IPsec-less UPDATE. Code factorizing.
+
+*clip-generic-net-1.0 (11 Feb 2008)
+
+  11 Feb 2008; Vincent Strubel <clipos@ssi.gouv.fr>
+  +clip-generic-net-1.0.ebuild:
+  Initial import. Generic net initialization scripts for CLIP.
+  Supports an admin-defined number of interfaces, and should support
+  all variants of CLIP through extra hooks that can be defined in 
+  /etc/init.d/*_extra.
